@@ -16,8 +16,13 @@
 extern "C" {
 #endif
 
-/* Initialize the display + LVGL and show the initial station. */
-void ui_start(void);
+/* Navigation request from a UI control (touch buttons). delta = -1 prev / +1
+ * next; the handler advances the station, exactly like an encoder detent. */
+typedef void (*ui_nav_cb_t)(int delta);
+
+/* Initialize the display + LVGL and show the initial station. `nav_cb` (may be
+ * NULL) is invoked when the on-screen prev/next buttons are tapped. */
+void ui_start(ui_nav_cb_t nav_cb);
 
 /* Update the displayed station (safe to call from any task). */
 void ui_set_station(int index, const char *name);

@@ -8,7 +8,9 @@
 #include "ui.h"
 #include "station.h"
 #include "display_st77916.h"
+#include "touch_cst816.h"
 
+#include <stdint.h>
 #include <string.h>
 
 #include "esp_log.h"
@@ -18,6 +20,8 @@
 #include "lvgl.h"
 
 static const char *TAG = "ui";
+
+static ui_nav_cb_t s_nav_cb;   /* invoked by the prev/next touch buttons */
 
 #define LCD_H_RES           DISPLAY_H_RES
 #define LCD_V_RES           DISPLAY_V_RES
@@ -41,10 +45,29 @@ static int       s_active_dot;
  * decorative ring, "PRESET" caption, preset dots, cover-art tile, station name
  * + type, the prev/play/next control bar, and a wifi/bt/battery status row.
  *
- * Navigation is driven by the rotary encoder (see encoder.c); the control-bar
- * buttons are drawn to match the design but are not wired to a touch input yet
- * (no touch driver is brought up on this board). Adding an LVGL touch indev and
- * routing the buttons through the same station-change path is a follow-up. */
+ * Both inputs drive the same path: the rotary encoder (primary, safe while
+ * driving) and the CST816S touch buttons (secondary) — prev/next call the nav
+ * callback, which advances the station exactly like an encoder detent. */
+
+/* prev/next button -> nav callback. delta passed as the event user-data. */
+static void nav_event_cb(lv_event_t *e)
+{
+    int delta = (int)(intptr_t)lv_event_get_user_data(e);
+    if (s_nav_cb) {
+        s_nav_cb(delta);
+    }
+}
+
+/* play/pause button -> toggle the icon. Actually pausing the stream is a later
+ * phase (the PLAYBACK_STATE control message); for now this is the visual cue. */
+static void play_event_cb(lv_event_t *e)
+{
+    lv_obj_t *label = (lv_obj_t *)lv_event_get_user_data(e);
+    const char *txt = lv_label_get_text(label);
+    lv_label_set_text(label, strcmp(txt, LV_SYMBOL_PLAY) == 0
+                                 ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
+}
+
 static void build_screen(void)
 {
     lv_obj_t *scr = lv_scr_act();
@@ -116,7 +139,8 @@ static void build_screen(void)
     lv_obj_set_style_text_font(s_lbl_type, &lv_font_montserrat_12, 0);
     lv_obj_align(s_lbl_type, LV_ALIGN_CENTER, 0, 46);
 
-    /* Control bar: prev / play / next (visual; encoder drives navigation). */
+    /* Control bar: prev / play / next. Touch taps route through the same nav
+     * path as the encoder; play/pause toggles the icon (visual cue). */
     lv_obj_t *btn_prev = lv_btn_create(scr);
     lv_obj_set_size(btn_prev, 45, 45);
     lv_obj_set_style_radius(btn_prev, LV_RADIUS_CIRCLE, 0);
@@ -124,6 +148,8 @@ static void build_screen(void)
     lv_obj_set_style_border_color(btn_prev, COLOR_MUTED, 0);
     lv_obj_set_style_border_width(btn_prev, 1, 0);
     lv_obj_align(btn_prev, LV_ALIGN_CENTER, -65, 85);
+    lv_obj_add_event_cb(btn_prev, nav_event_cb, LV_EVENT_CLICKED,
+                        (void *)(intptr_t)-1);
     lv_obj_t *l_prev = lv_label_create(btn_prev);
     lv_label_set_text(l_prev, LV_SYMBOL_PREV);
     lv_obj_set_style_text_color(l_prev, COLOR_TEXT, 0);
@@ -138,6 +164,7 @@ static void build_screen(void)
     lv_label_set_text(l_play, LV_SYMBOL_PAUSE);
     lv_obj_set_style_text_color(l_play, COLOR_TEXT, 0);
     lv_obj_center(l_play);
+    lv_obj_add_event_cb(btn_play, play_event_cb, LV_EVENT_CLICKED, l_play);
 
     lv_obj_t *btn_next = lv_btn_create(scr);
     lv_obj_set_size(btn_next, 45, 45);
@@ -146,6 +173,8 @@ static void build_screen(void)
     lv_obj_set_style_border_color(btn_next, COLOR_MUTED, 0);
     lv_obj_set_style_border_width(btn_next, 1, 0);
     lv_obj_align(btn_next, LV_ALIGN_CENTER, 65, 85);
+    lv_obj_add_event_cb(btn_next, nav_event_cb, LV_EVENT_CLICKED,
+                        (void *)(intptr_t)1);
     lv_obj_t *l_next = lv_label_create(btn_next);
     lv_label_set_text(l_next, LV_SYMBOL_NEXT);
     lv_obj_set_style_text_color(l_next, COLOR_TEXT, 0);
@@ -191,8 +220,10 @@ void ui_set_station(int index, const char *name)
     }
 }
 
-void ui_start(void)
+void ui_start(ui_nav_cb_t nav_cb)
 {
+    s_nav_cb = nav_cb;
+
     esp_lcd_panel_io_handle_t io = NULL;
     esp_lcd_panel_handle_t panel = NULL;
     ESP_ERROR_CHECK(display_st77916_init(&io, &panel));
@@ -209,7 +240,15 @@ void ui_start(void)
         .vres          = LCD_V_RES,
         .flags = { .buff_dma = true },
     };
-    lvgl_port_add_disp(&disp_cfg);
+    lv_disp_t *disp = lvgl_port_add_disp(&disp_cfg);
+
+    /* CST816S touch as an LVGL indev (so the control-bar buttons work). The
+     * panel still works without it, so a touch failure is non-fatal. */
+    esp_err_t terr = touch_cst816_init(disp);
+    if (terr != ESP_OK) {
+        ESP_LOGW(TAG, "touch unavailable: %s (buttons inert, encoder still works)",
+                 esp_err_to_name(terr));
+    }
 
     if (lvgl_port_lock(0)) {
         build_screen();

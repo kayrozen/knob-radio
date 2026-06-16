@@ -122,10 +122,14 @@ cd firmware/u4wdh_bridge && idf.py build -DA2DP_TARGET_NAME='"My Car"'
   audio/UART work on core 1: a dark-themed preset screen (outer ring, per-station
   dots, cover tile, station name/type, a prev/play/next control bar and a
   wifi/bt/battery status row) whose name/type/active-dot track the encoder. The
-  Phase-E CI job (`.github/workflows/phase-e.yml`) compiles the full ESP-ADF
-  pipeline **and** the LVGL UI (`ui.c` + the `lvgl`/`esp_lcd_st77916` managed
-  components); only the on-hardware panel bring-up (QSPI pins, touch) is out of
-  CI scope.
+  panel (`display_st77916.c`, QSPI + PWM backlight) and the CST816S touch
+  (`touch_cst816.c`) share the S3's mutex-guarded I2C bus (`i2c_bus.c`) with the
+  Phase-6 haptic; the control-bar buttons route through the same station-change
+  path as the encoder. Pins are the schematic-confirmed values in `board_pins.h`.
+  The Phase-E CI job (`.github/workflows/phase-e.yml`) compiles the full ESP-ADF
+  pipeline **and** the LVGL UI + touch (`ui.c`/`touch_cst816.c` + the
+  `lvgl`/`esp_lcd_st77916`/`esp_lcd_touch_cst816s` managed components); only the
+  on-hardware panel/touch bring-up is out of CI scope.
 - **Phase F (real car)** — field test; WiFi auto-reconnect (`wifi_sta.c`) covers
   the tunnel-drop/recovery case. See the plan.
 

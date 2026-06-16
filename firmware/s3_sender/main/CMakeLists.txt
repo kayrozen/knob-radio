@@ -34,10 +34,11 @@ endif()
 # Kconfig-gated, so esp_lcd is required unconditionally — negligible for the
 # non-UI builds, which already pull the managed components anyway.
 if(CONFIG_PRESET_ENABLE_UI)
-    # i2c_bus: shared bus manager for the (Phase 3) touch + (Phase 6) haptic.
+    # i2c_bus: shared bus manager for the touch + (Phase 6) haptic.
     # display_st77916: panel bring-up + PWM backlight, used by ui.c.
-    list(APPEND srcs "ui.c" "display_st77916.c" "i2c_bus.c")
+    # touch_cst816: CST816S capacitive touch -> LVGL indev.
+    list(APPEND srcs "ui.c" "display_st77916.c" "i2c_bus.c" "touch_cst816.c")
 endif()
-list(APPEND reqs esp_lcd esp_lvgl_port lvgl esp_lcd_st77916)
+list(APPEND reqs esp_lcd esp_lvgl_port lvgl esp_lcd_st77916 esp_lcd_touch_cst816s)
 
 idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES ${reqs})

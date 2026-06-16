@@ -44,6 +44,16 @@ static void on_station_change(int index)
 #endif
 }
 
+#if defined(CONFIG_PRESET_ENABLE_UI)
+/* UI touch-button callback: advance the station, like an encoder detent. The
+ * encoder advances internally and calls on_station_change(new_index); the
+ * touch buttons hand us a delta, so we advance here then apply. */
+static void on_ui_nav(int delta)
+{
+    on_station_change(station_advance(delta));
+}
+#endif
+
 static void phase_e_start(void)
 {
     station_init();
@@ -56,7 +66,7 @@ static void phase_e_start(void)
     adf_pipeline_start(st->url);
 
 #if defined(CONFIG_PRESET_ENABLE_UI)
-    ui_start();                       /* core 0 */
+    ui_start(on_ui_nav);              /* core 0 */
 #endif
     encoder_start(CONFIG_PRESET_ENC_GPIO_A, CONFIG_PRESET_ENC_GPIO_B,
                   on_station_change); /* core 0 */
