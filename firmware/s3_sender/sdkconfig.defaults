@@ -13,3 +13,10 @@ CONFIG_FREERTOS_HZ=1000
 
 # --- Logging ---
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+
+# --- FreeRTOS ---
+# ESP-ADF's audio_pipeline (Phase E) still uses legacy FreeRTOS names
+# (xSemaphoreHandle, portTICK_RATE_MS) that IDF v5.x only exposes with the
+# backward-compatibility option. ADF's own examples set it; the TONE build
+# is unaffected by the extra legacy definitions.
+CONFIG_FREERTOS_ENABLE_BACKWARD_COMPATIBILITY=y

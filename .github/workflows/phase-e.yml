@@ -38,6 +38,8 @@ jobs:
           . "$IDF_PATH/export.sh"
           cd firmware/s3_sender
           # Enable the ESP-ADF audio source on top of the project defaults.
+          # (The FreeRTOS backward-compatibility option ADF needs lives in the
+          # committed sdkconfig.defaults so on-hardware ADF builds get it too.)
           printf 'CONFIG_PRESET_AUDIO_SOURCE_ADF=y\n' > sdkconfig.defaults.phase_e
           idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.phase_e" \
                  set-target esp32s3 build
