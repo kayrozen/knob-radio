@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  host-tests:
+    name: Host unit tests (COBS / framing / jitter buffer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build & run host tests
+        run: make -C test/host test
+
+  firmware-build:
+    name: Build firmware (ESP-IDF)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: s3_sender
+            path: firmware/s3_sender
+            target: esp32s3
+          - name: u4wdh_bridge
+            path: firmware/u4wdh_bridge
+            target: esp32
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ${{ matrix.name }} (${{ matrix.target }})
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.3
+          target: ${{ matrix.target }}
+          path: ${{ matrix.path }}

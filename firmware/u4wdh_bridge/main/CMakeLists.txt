@@ -1,0 +1,16 @@
+idf_component_register(
+    SRCS
+        "app_main.c"
+        "jitter_buffer.c"
+        "uart_reader.c"
+        "backpressure.c"
+        "a2dp_bridge.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        pcm_link
+        driver
+        nvs_flash
+        bt
+        esp_timer
+)

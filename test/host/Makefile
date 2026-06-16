@@ -1,0 +1,31 @@
+# Host-side unit tests. No ESP-IDF, no hardware — pure C with the system
+# toolchain. Covers the shared pcm_link protocol and the U4WDH jitter buffer.
+
+CC       ?= cc
+COMPONENT := ../../components/pcm_link
+BRIDGE    := ../../firmware/u4wdh_bridge/main
+CFLAGS   ?= -std=c11 -O2 -Wall -Wextra -Werror -I$(COMPONENT)/include
+
+LINK_SRCS := test_pcm_link.c \
+             $(COMPONENT)/src/cobs.c \
+             $(COMPONENT)/src/pcm_frame.c \
+             $(COMPONENT)/src/pcm_link_rx.c
+
+JB_SRCS   := test_jitter_buffer.c \
+             $(BRIDGE)/jitter_buffer.c
+
+.PHONY: all test clean
+all: test
+
+test_pcm_link: $(LINK_SRCS)
+	$(CC) $(CFLAGS) $(LINK_SRCS) -o $@
+
+test_jitter_buffer: $(JB_SRCS)
+	$(CC) $(CFLAGS) -I$(BRIDGE) $(JB_SRCS) -o $@
+
+test: test_pcm_link test_jitter_buffer
+	./test_pcm_link
+	./test_jitter_buffer
+
+clean:
+	rm -f test_pcm_link test_jitter_buffer
