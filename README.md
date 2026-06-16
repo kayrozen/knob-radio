@@ -106,9 +106,13 @@ cd firmware/u4wdh_bridge && idf.py build -DA2DP_TARGET_NAME='"My Car"'
   stations (`adf_pipeline.c`, `encoder.c`, `station.c`), and switching only
   pauses PCM — the S3 emits silence so the U4WDH's A2DP link survives. An
   optional LVGL UI (`ui.c`) on the round display runs on core 0, away from the
-  audio/UART work on core 1. The ESP-ADF audio build is compiled in CI
-  (`.github/workflows/phase-e.yml`); the LVGL panel driver is board-specific and
-  validated on hardware, not in CI.
+  audio/UART work on core 1: a dark-themed preset screen (outer ring, per-station
+  dots, cover tile, station name/type, a prev/play/next control bar and a
+  wifi/bt/battery status row) whose name/type/active-dot track the encoder. The
+  Phase-E CI job (`.github/workflows/phase-e.yml`) compiles the full ESP-ADF
+  pipeline **and** the LVGL UI (`ui.c` + the `lvgl`/`esp_lcd_st77916` managed
+  components); only the on-hardware panel bring-up (QSPI pins, touch) is out of
+  CI scope.
 - **Phase F (real car)** — field test; WiFi auto-reconnect (`wifi_sta.c`) covers
   the tunnel-drop/recovery case. See the plan.
 

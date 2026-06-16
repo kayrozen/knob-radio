@@ -16,6 +16,7 @@ extern "C" {
 
 typedef struct {
     const char *name;   /* shown on the display */
+    const char *tag;    /* short subtitle, e.g. codec/kind ("MP3 stream") */
     const char *url;    /* stream URL (Icecast MP3/AAC, or HLS .m3u8) */
 } station_t;
 

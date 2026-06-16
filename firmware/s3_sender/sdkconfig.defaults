@@ -21,6 +21,13 @@ CONFIG_FREERTOS_HZ=1000
 # --- Logging ---
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 
+# --- LVGL UI fonts (Phase E, optional UI) ---
+# The preset screen uses Montserrat 12/20 in addition to the default 14. These
+# symbols come from the lvgl managed component; enabling them is a no-op for
+# builds that don't link the UI.
+CONFIG_LV_FONT_MONTSERRAT_12=y
+CONFIG_LV_FONT_MONTSERRAT_20=y
+
 # --- FreeRTOS ---
 # ESP-ADF's audio_pipeline (Phase E) still uses legacy FreeRTOS names
 # (xSemaphoreHandle, portTICK_RATE_MS) that IDF v5.x only exposes with the

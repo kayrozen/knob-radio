@@ -3,8 +3,9 @@ name: Phase E build (ESP-ADF)
 # Builds the S3 sender's Phase-E variant (real internet-radio pipeline) against
 # a real ESP-ADF checkout. Separate from the main CI so the fast, authoritative
 # host-test + plain-IDF builds are never gated on this heavier job. The LVGL UI
-# is left off here (board-specific panel driver, validated on hardware only);
-# this job proves the ESP-ADF audio pipeline compiles.
+# is enabled too, so the preset screen (ui.c) and its managed components
+# (esp_lvgl_port/lvgl/esp_lcd_st77916) are compile-checked here; only the actual
+# panel bring-up on hardware is out of CI scope.
 
 on:
   workflow_dispatch:
@@ -48,6 +49,7 @@ jobs:
           {
             printf 'CONFIG_PRESET_AUDIO_SOURCE_ADF=y\n'
             printf 'CONFIG_ESP32_S3_KORVO2_V3_BOARD=y\n'
+            printf 'CONFIG_PRESET_ENABLE_UI=y\n'
           } > sdkconfig.defaults.phase_e
           idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.phase_e" \
                  set-target esp32s3 build

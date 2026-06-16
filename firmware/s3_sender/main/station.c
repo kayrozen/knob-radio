@@ -8,10 +8,10 @@
  * exercise each codec path. Swap freely; the prototype only validates switching
  * and per-codec decode, not the specific stations. */
 static const station_t s_stations[] = {
-    { "SomaFM Groove Salad", "http://ice1.somafm.com/groovesalad-128-mp3" },
-    { "SomaFM DEF CON",      "http://ice1.somafm.com/defcon-256-mp3"      },
-    { "SomaFM Drone Zone",   "http://ice1.somafm.com/dronezone-128-aac"   },
-    { "BBC World (HLS)",     "http://as-hls-ww-live.akamaized.net/pool_904/live/ww/bbc_world_service/bbc_world_service.isml/bbc_world_service-audio%3d96000.norewind.m3u8" },
+    { "SomaFM Groove Salad", "MP3 stream", "http://ice1.somafm.com/groovesalad-128-mp3" },
+    { "SomaFM DEF CON",      "MP3 stream", "http://ice1.somafm.com/defcon-256-mp3"      },
+    { "SomaFM Drone Zone",   "AAC stream", "http://ice1.somafm.com/dronezone-128-aac"   },
+    { "BBC World (HLS)",     "HLS stream", "http://as-hls-ww-live.akamaized.net/pool_904/live/ww/bbc_world_service/bbc_world_service.isml/bbc_world_service-audio%3d96000.norewind.m3u8" },
 };
 
 #define STATION_N (sizeof(s_stations) / sizeof(s_stations[0]))
