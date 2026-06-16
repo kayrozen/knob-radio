@@ -23,9 +23,21 @@ extern "C" {
 #define A2DP_TARGET_NAME ""
 #endif
 
-/* Initialize the BT stack and begin discovery/connection. The data callback
- * pulls PCM from `jb`. */
-void a2dp_bridge_start(jitter_buffer_t *jb);
+/*
+ * Bring up the classic-BT controller + Bluedroid + A2DP source and register
+ * callbacks, but do NOT start discovery yet. Call this first so the BT stack
+ * claims its (large) share of internal DRAM before the caller sizes the
+ * jitter buffer from what remains.
+ */
+void a2dp_bridge_init(void);
+
+/* Point the A2DP data callback at the jitter buffer. Must be called (with a
+ * valid, initialized buffer) before discovery so streaming has somewhere to
+ * pull from. */
+void a2dp_bridge_set_buffer(jitter_buffer_t *jb);
+
+/* Begin discovery/connection to the target sink. */
+void a2dp_bridge_start_discovery(void);
 
 #ifdef __cplusplus
 }

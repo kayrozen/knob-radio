@@ -1,23 +1,67 @@
 /*
  * app_main.c — ESP32-S3 sender: PCM -> COBS frame -> UART forward link.
  *
- * Phases A-D: synthesizes a test PCM signal and streams it over the COBS/UART
- * forward link to the U4WDH bridge, honoring return-channel backpressure. This
- * validates the link, framing, jitter and drift control without WiFi.
+ * TONE build (default): synthesizes a test PCM signal and streams it over the
+ * COBS/UART link to the U4WDH bridge (validates link/jitter/drift, phases B-D).
  *
- * Phase E (documented, not built here): swap pcm_source for the ESP-ADF
- * pipeline (WiFi -> http/hls_stream -> decoder -> resample -> PCM) and add the
- * LVGL UI on the rotary encoder. The uart_writer framing path is unchanged.
+ * ADF build (Phase E): brings up WiFi + the ESP-ADF internet-radio pipeline and
+ * streams real radio PCM over the same link; the rotary encoder changes station
+ * and (optionally) the LVGL UI shows it. Audio/UART live on core 1, UI/input on
+ * core 0, so the UI cannot starve the audio.
  */
 #include "esp_log.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
+#include "sdkconfig.h"
 
 #include "pcm_source.h"
 #include "uart_writer.h"
 #include "backpressure_rx.h"
 
+#if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
+#include "station.h"
+#include "encoder.h"
+#include "wifi_sta.h"
+#include "adf_pipeline.h"
+#if defined(CONFIG_PRESET_ENABLE_UI)
+#include "ui.h"
+#endif
+#endif
+
 static const char *TAG = "s3_main";
+
+#if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
+/* Encoder callback: re-point the pipeline at the new station and refresh UI. */
+static void on_station_change(int index)
+{
+    const station_t *st = station_get(index);
+    if (!st) {
+        return;
+    }
+    adf_pipeline_set_url(st->url);   /* PCM pauses briefly; A2DP link survives */
+#if defined(CONFIG_PRESET_ENABLE_UI)
+    ui_set_station(index, st->name);
+#endif
+}
+
+static void phase_e_start(void)
+{
+    station_init();
+
+    if (!wifi_sta_start(CONFIG_PRESET_WIFI_SSID, CONFIG_PRESET_WIFI_PASSWORD, 0)) {
+        ESP_LOGE(TAG, "WiFi did not connect");
+    }
+
+    const station_t *st = station_current_station();
+    adf_pipeline_start(st->url);
+
+#if defined(CONFIG_PRESET_ENABLE_UI)
+    ui_start();                       /* core 0 */
+#endif
+    encoder_start(CONFIG_PRESET_ENC_GPIO_A, CONFIG_PRESET_ENC_GPIO_B,
+                  on_station_change); /* core 0 */
+}
+#endif
 
 void app_main(void)
 {
@@ -30,8 +74,12 @@ void app_main(void)
     ESP_LOGI(TAG, "hello S3 — PCM -> COBS/UART forward link");
 
     pcm_source_init();
-    backpressure_rx_start();   /* must be listening before we start pacing */
-    uart_writer_start();
+    backpressure_rx_start();   /* listen before we start pacing */
+    uart_writer_start();       /* core 1: drains pcm_source -> COBS -> UART */
+
+#if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
+    phase_e_start();
+#endif
 
     ESP_LOGI(TAG, "free heap: %lu bytes", (unsigned long)esp_get_free_heap_size());
 }

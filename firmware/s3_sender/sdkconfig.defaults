@@ -2,6 +2,13 @@
 
 CONFIG_IDF_TARGET="esp32s3"
 
+# --- Flash & partitions (N16R8 module: 16 MB flash) ---
+# The default 1 MB app partition can't hold the Phase E ESP-ADF + WiFi binary
+# (~1.2 MB), so use a custom table with a 3 MB factory app. See partitions.csv.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
 # --- PSRAM (8 MB on the R8 module; needed by the ADF pipeline in Phase E) ---
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
@@ -13,3 +20,17 @@ CONFIG_FREERTOS_HZ=1000
 
 # --- Logging ---
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+
+# --- LVGL UI fonts (Phase E, optional UI) ---
+# The preset screen uses Montserrat 12/20 in addition to the default 14. These
+# symbols come from the lvgl managed component; enabling them is a no-op for
+# builds that don't link the UI.
+CONFIG_LV_FONT_MONTSERRAT_12=y
+CONFIG_LV_FONT_MONTSERRAT_20=y
+
+# --- FreeRTOS ---
+# ESP-ADF's audio_pipeline (Phase E) still uses legacy FreeRTOS names
+# (xSemaphoreHandle, portTICK_RATE_MS) that IDF v5.x only exposes with the
+# backward-compatibility option. ADF's own examples set it; the TONE build
+# is unaffected by the extra legacy definitions.
+CONFIG_FREERTOS_ENABLE_BACKWARD_COMPATIBILITY=y

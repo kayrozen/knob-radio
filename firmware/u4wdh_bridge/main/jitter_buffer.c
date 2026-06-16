@@ -40,6 +40,12 @@ uint32_t jb_filled_ms(const jitter_buffer_t *jb)
     return (uint32_t)((uint64_t)frames * 1000u / PCM_LINK_SAMPLE_RATE_HZ);
 }
 
+uint32_t jb_capacity_ms(const jitter_buffer_t *jb)
+{
+    size_t frames = jb->capacity / PCM_LINK_BYTES_PER_SAMPLE;
+    return (uint32_t)((uint64_t)frames * 1000u / PCM_LINK_SAMPLE_RATE_HZ);
+}
+
 bool jb_push(jitter_buffer_t *jb, const uint8_t *src, size_t len)
 {
     if (len > jb_free(jb)) {

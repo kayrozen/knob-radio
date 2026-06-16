@@ -1,0 +1,13 @@
+# Managed dependencies for s3_sender.
+# LVGL and display components are only compiled when CONFIG_PRESET_ENABLE_UI is
+# set (see CMakeLists.txt), but the component manager does not support Kconfig
+# rules so they are always listed here.  The ADF and TONE builds ignore them.
+dependencies:
+  idf: ">=5.1"
+
+  espressif/esp_lvgl_port:
+    version: "^1.4"
+  lvgl/lvgl:
+    version: "^8.3"
+  espressif/esp_lcd_st77916:
+    version: "*"

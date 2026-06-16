@@ -1,0 +1,127 @@
+/*
+ * adf_pipeline.c — see adf_pipeline.h.
+ *
+ * Follows the standard ESP-ADF reader-pipeline pattern (cf. the player /
+ * pipeline_raw_http examples): elements are linked http -> decoder -> filter ->
+ * raw, and the app pulls PCM out of the raw_stream. A listener task watches for
+ * the decoder's music-info report and reconfigures the resampler to the stream's
+ * real sample rate / channel count, so any MP3/AAC rate lands at 44.1k/stereo.
+ */
+#include "adf_pipeline.h"
+#include "pcm_link_proto.h"
+
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "audio_element.h"
+#include "audio_pipeline.h"
+#include "audio_event_iface.h"
+#include "http_stream.h"
+#include "raw_stream.h"
+#include "filter_resample.h"
+#include "esp_decoder.h"
+
+static const char *TAG = "adf";
+
+static audio_pipeline_handle_t s_pipeline;
+static audio_element_handle_t  s_http;
+static audio_element_handle_t  s_decoder;
+static audio_element_handle_t  s_filter;   /* resampler */
+static audio_element_handle_t  s_raw;
+static audio_event_iface_handle_t s_evt;
+
+/* Listener: when the decoder reports the real music info, retune the resampler
+ * so its source rate/channels match (output stays 44.1k/16/stereo). */
+static void adf_event_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        audio_event_iface_msg_t msg;
+        if (audio_event_iface_listen(s_evt, &msg, portMAX_DELAY) != ESP_OK) {
+            continue;
+        }
+        if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT &&
+            msg.source == (void *)s_decoder &&
+            msg.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
+            audio_element_info_t info = { 0 };
+            audio_element_getinfo(s_decoder, &info);
+            ESP_LOGI(TAG, "stream music info: %d Hz, %d ch, %d bits",
+                     info.sample_rates, info.channels, info.bits);
+            rsp_filter_set_src_info(s_filter, info.sample_rates, info.channels);
+        }
+    }
+}
+
+void adf_pipeline_start(const char *url)
+{
+    audio_pipeline_cfg_t pcfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
+    s_pipeline = audio_pipeline_init(&pcfg);
+
+    http_stream_cfg_t http_cfg = HTTP_STREAM_CFG_DEFAULT();
+    http_cfg.type = AUDIO_STREAM_READER;
+    http_cfg.enable_playlist_parser = true;   /* follow .m3u/.pls/HLS playlists */
+    s_http = http_stream_init(&http_cfg);
+
+    audio_decoder_t auto_decode[] = {
+        DEFAULT_ESP_MP3_DECODER_CONFIG(),
+        DEFAULT_ESP_AAC_DECODER_CONFIG(),
+        DEFAULT_ESP_M4A_DECODER_CONFIG(),
+        DEFAULT_ESP_TS_DECODER_CONFIG(),
+    };
+    esp_decoder_cfg_t dec_cfg = DEFAULT_ESP_DECODER_CONFIG();
+    s_decoder = esp_decoder_init(&dec_cfg, auto_decode,
+                                 sizeof(auto_decode) / sizeof(auto_decode[0]));
+
+    rsp_filter_cfg_t rsp_cfg = DEFAULT_RESAMPLE_FILTER_CONFIG();
+    rsp_cfg.src_rate  = PCM_LINK_SAMPLE_RATE_HZ;   /* updated on music-info */
+    rsp_cfg.src_ch    = PCM_LINK_CHANNELS;
+    rsp_cfg.dest_rate = PCM_LINK_SAMPLE_RATE_HZ;
+    rsp_cfg.dest_ch   = PCM_LINK_CHANNELS;
+    s_filter = rsp_filter_init(&rsp_cfg);
+
+    raw_stream_cfg_t raw_cfg = RAW_STREAM_CFG_DEFAULT();
+    raw_cfg.type = AUDIO_STREAM_READER;
+    s_raw = raw_stream_init(&raw_cfg);
+
+    audio_pipeline_register(s_pipeline, s_http,    "http");
+    audio_pipeline_register(s_pipeline, s_decoder, "dec");
+    audio_pipeline_register(s_pipeline, s_filter,  "rsp");
+    audio_pipeline_register(s_pipeline, s_raw,     "raw");
+
+    const char *order[] = { "http", "dec", "rsp", "raw" };
+    audio_pipeline_link(s_pipeline, order, 4);
+
+    /* Event interface so we can react to the decoder's music-info report. */
+    audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
+    s_evt = audio_event_iface_init(&evt_cfg);
+    audio_pipeline_set_listener(s_pipeline, s_evt);
+
+    audio_element_set_uri(s_http, url);
+    audio_pipeline_run(s_pipeline);
+    ESP_LOGI(TAG, "pipeline running: %s", url);
+
+    xTaskCreatePinnedToCore(adf_event_task, "adf_evt", 3072, NULL, 5, NULL, 1);
+}
+
+int adf_pipeline_read(void *buf, size_t len)
+{
+    int n = raw_stream_read(s_raw, (char *)buf, (int)len);
+    return (n > 0) ? n : 0;
+}
+
+void adf_pipeline_set_url(const char *url)
+{
+    ESP_LOGI(TAG, "switching to: %s", url);
+    /* Stop and reset every element, re-point the URI, run again. The pipeline
+     * objects persist, so this is fast and leaves the rest of the system
+     * (and the downstream A2DP link) intact. */
+    audio_pipeline_stop(s_pipeline);
+    audio_pipeline_wait_for_stop(s_pipeline);
+    audio_pipeline_reset_ringbuffer(s_pipeline);
+    audio_pipeline_reset_elements(s_pipeline);
+    audio_pipeline_change_state(s_pipeline, AEL_STATE_INIT);
+
+    audio_element_set_uri(s_http, url);
+    audio_pipeline_run(s_pipeline);
+}

@@ -1,0 +1,12 @@
+# Custom partition table for the S3 sender.
+#
+# The default single-factory layout caps the app at 1 MB, but the Phase E build
+# (ESP-ADF pipeline + WiFi + MP3/AAC/TS decoders, and optionally LVGL) is ~1.2 MB
+# and growing. The board is an ESP32-S3-WROOM-1-N16R8 (16 MB flash), so give the
+# app a generous 3 MB with room to spare. The plain TONE build is tiny and fits
+# trivially; this just raises the ceiling.
+#
+# Name,     Type, SubType, Offset,  Size,    Flags
+nvs,        data, nvs,     ,        0x6000,
+phy_init,   data, phy,     ,        0x1000,
+factory,    app,  factory, ,        0x300000,
