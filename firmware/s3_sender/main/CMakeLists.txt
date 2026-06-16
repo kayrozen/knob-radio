@@ -1,0 +1,14 @@
+idf_component_register(
+    SRCS
+        "app_main.c"
+        "pcm_source.c"
+        "uart_writer.c"
+        "backpressure_rx.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        pcm_link
+        driver
+        nvs_flash
+        esp_timer
+)
