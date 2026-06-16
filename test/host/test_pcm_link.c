@@ -12,6 +12,7 @@
 #include "pcm_frame.h"
 #include "pcm_link_rx.h"
 #include "pcm_link_proto.h"
+#include "control_msg.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -130,6 +131,7 @@ static void test_frame(void)
     pcm_frame_t f;
     pcm_frame_status_t st = pcm_frame_parse(wire, w - 1, &f);
     CHECK(st == PCM_FRAME_OK, "parse status %d", st);
+    CHECK(f.type == PCM_LINK_FRAME_AUDIO, "type mismatch %u", f.type);
     CHECK(f.seq == 42, "seq mismatch %u", f.seq);
     CHECK(f.length == sizeof(payload), "length mismatch %u", f.length);
     CHECK(memcmp(f.payload, payload, sizeof(payload)) == 0, "payload mismatch");
@@ -156,6 +158,9 @@ typedef struct {
     int      count;
     uint8_t  last_seq;
     int      seq_ok;
+    int      audio;        /* AUDIO frames seen   */
+    int      control;      /* CONTROL frames seen */
+    uint8_t  last_ctrl_op; /* opcode of the last control frame */
 } rx_collect_t;
 
 static void on_frame(const pcm_frame_t *frame, void *user)
@@ -163,6 +168,15 @@ static void on_frame(const pcm_frame_t *frame, void *user)
     rx_collect_t *c = (rx_collect_t *)user;
     c->count++;
     c->last_seq = frame->seq;
+    if (frame->type == PCM_LINK_FRAME_AUDIO) {
+        c->audio++;
+    } else if (frame->type == PCM_LINK_FRAME_CONTROL) {
+        c->control++;
+        pcm_link_ctrl_msg_t m;
+        if (pcm_link_ctrl_parse(frame, &m)) {
+            c->last_ctrl_op = m.op;
+        }
+    }
 }
 
 static void test_stream_resync(void)
@@ -235,6 +249,97 @@ static void test_stream_resync(void)
 }
 
 /* --------------------------------------------------------------------- */
+/* Control plane: message codec + typed framing                           */
+/* --------------------------------------------------------------------- */
+
+static void test_control(void)
+{
+    printf("test_control\n");
+
+    uint8_t wire[PCM_LINK_FRAME_MAX_WIRE];
+    pcm_frame_t f;
+    pcm_link_ctrl_msg_t m;
+
+    /* Multi-byte arg (e.g. BT_PAIR <mac[6]>). */
+    uint8_t mac[6] = {0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02};
+    size_t w = pcm_link_ctrl_build_frame(5, PCM_LINK_CTRL_BT_PAIR, mac,
+                                         sizeof(mac), wire);
+    CHECK(w > 0, "ctrl build failed");
+    CHECK(pcm_frame_parse(wire, w - 1, &f) == PCM_FRAME_OK, "ctrl frame parse");
+    CHECK(f.type == PCM_LINK_FRAME_CONTROL, "ctrl type %u", f.type);
+    CHECK(f.seq == 5, "ctrl seq %u", f.seq);
+    CHECK(pcm_link_ctrl_parse(&f, &m), "ctrl msg parse");
+    CHECK(m.op == PCM_LINK_CTRL_BT_PAIR, "op %u", m.op);
+    CHECK(m.arg_len == sizeof(mac), "arg_len %u", m.arg_len);
+    CHECK(m.args && memcmp(m.args, mac, sizeof(mac)) == 0, "args mismatch");
+
+    /* Single-byte helper (e.g. VERSION <proto>). */
+    w = pcm_link_ctrl_build_u8_frame(6, PCM_LINK_CTRL_VERSION,
+                                     PCM_LINK_PROTO_VERSION, wire);
+    CHECK(pcm_frame_parse(wire, w - 1, &f) == PCM_FRAME_OK, "version parse");
+    CHECK(pcm_link_ctrl_parse(&f, &m), "version msg parse");
+    CHECK(m.op == PCM_LINK_CTRL_VERSION && m.arg_len == 1 &&
+          m.args[0] == PCM_LINK_PROTO_VERSION, "version payload");
+
+    /* Zero-arg opcode (e.g. BT_SCAN_START / OTA_END). */
+    w = pcm_link_ctrl_build_frame(7, PCM_LINK_CTRL_BT_SCAN_START, NULL, 0, wire);
+    CHECK(pcm_frame_parse(wire, w - 1, &f) == PCM_FRAME_OK, "scan parse");
+    CHECK(pcm_link_ctrl_parse(&f, &m), "scan msg parse");
+    CHECK(m.op == PCM_LINK_CTRL_BT_SCAN_START && m.arg_len == 0 &&
+          m.args == NULL, "zero-arg control");
+
+    /* An AUDIO frame must NOT be interpreted as a control message. */
+    uint8_t pcm[16] = {0};
+    w = pcm_frame_build(8, pcm, sizeof(pcm), wire);
+    CHECK(pcm_frame_parse(wire, w - 1, &f) == PCM_FRAME_OK, "audio parse");
+    CHECK(!pcm_link_ctrl_parse(&f, &m), "audio wrongly parsed as control");
+
+    /* Over-long args rejected. */
+    static uint8_t big[PCM_LINK_CTRL_MAX_ARGS + 1];
+    CHECK(pcm_link_ctrl_build_frame(9, PCM_LINK_CTRL_METADATA, big, sizeof(big),
+                                    wire) == 0, "oversized control accepted");
+}
+
+/* Audio and control frames interleaved on one stream must dispatch by type,
+ * and control frames must not perturb the audio sequence accounting. */
+static void test_dispatch_interleaved(void)
+{
+    printf("test_dispatch_interleaved\n");
+
+    uint8_t scratch[PCM_LINK_FRAME_MAX_WIRE];
+    rx_collect_t c = {0};
+    pcm_link_rx_t rx;
+    pcm_link_rx_init(&rx, scratch, sizeof(scratch), on_frame, &c);
+
+    uint8_t pcm[64];
+    for (size_t i = 0; i < sizeof(pcm); i++) {
+        pcm[i] = (uint8_t)(i * 3);
+    }
+
+    uint8_t stream[2048];
+    size_t n = 0;
+    /* audio seq0, CONTROL, audio seq1, CONTROL, audio seq2 */
+    n += pcm_frame_build(0, pcm, sizeof(pcm), &stream[n]);
+    n += pcm_link_ctrl_build_u8_frame(200, PCM_LINK_CTRL_AVRCP_EVENT,
+                                      PCM_LINK_AVRCP_NEXT, &stream[n]);
+    n += pcm_frame_build(1, pcm, sizeof(pcm), &stream[n]);
+    n += pcm_link_ctrl_build_u8_frame(201, PCM_LINK_CTRL_BT_STATUS,
+                                      PCM_LINK_BT_CONNECTED, &stream[n]);
+    n += pcm_frame_build(2, pcm, sizeof(pcm), &stream[n]);
+
+    pcm_link_rx_feed(&rx, stream, n);
+
+    CHECK(c.count == 5, "expected 5 frames, got %d", c.count);
+    CHECK(c.audio == 3, "expected 3 audio, got %d", c.audio);
+    CHECK(c.control == 2, "expected 2 control, got %d", c.control);
+    CHECK(c.last_ctrl_op == PCM_LINK_CTRL_BT_STATUS, "last ctrl op %u",
+          c.last_ctrl_op);
+    CHECK(rx.frames_ok == 5, "frames_ok=%u", rx.frames_ok);
+    CHECK(rx.err_crc == 0 && rx.err_cobs == 0 && rx.err_length == 0,
+          "unexpected errors");
+}
+
+/* --------------------------------------------------------------------- */
 /* Overhead measurement (informational, feeds the deliverable's metrics)  */
 /* --------------------------------------------------------------------- */
 
@@ -264,6 +369,8 @@ int main(void)
     test_cobs();
     test_frame();
     test_stream_resync();
+    test_control();
+    test_dispatch_interleaved();
     test_overhead_report();
 
     printf("=== %d checks, %d failures ===\n", g_checks, g_failures);

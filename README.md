@@ -36,16 +36,29 @@ A logical frame is serialized little-endian, then COBS-encoded, then terminated
 by a single `0x00`:
 
 ```
-[ seq(1) | length(2 LE) | payload(length) | crc8(1) ]  -- serialize -->  raw bytes
+[ type(1) | seq(1) | length(2 LE) | payload(length) | crc8(1) ]  -- serialize -->  raw bytes
 raw bytes  -- COBS encode -->  body with NO 0x00  -->  append 0x00 delimiter
 ```
 
 COBS guarantees `0x00` never appears inside the body, so it is an unambiguous,
 always-resyncable frame boundary — exactly what a 3 Mbps link without hardware
-flow control needs. Measured overhead for a 512-byte payload: **~1.6%** (see the
+flow control needs. Measured overhead for a 512-byte payload: **~1.8%** (see the
 host test output). See [`components/pcm_link/include/pcm_link_proto.h`](components/pcm_link/include/pcm_link_proto.h)
 for all constants and the validated pinout (S3 GPIO38→U4WDH GPIO18 forward,
 U4WDH GPIO23→S3 GPIO48 return).
+
+### Control plane (the `type` byte)
+
+The leading `type` byte multiplexes the audio stream with a bidirectional
+control plane (and the OTA / cover-art transfers) over the one validated link —
+the receiver dispatches on it (`pcm_link_frame_type_t`: `AUDIO`/`CONTROL`/
+`OTA_DATA`/`ART_DATA`). A `CONTROL` frame carries `[opcode | args…]`
+([`control_msg.h`](components/pcm_link/include/control_msg.h)) covering BT
+pairing/status, the AVRCP relay, now-playing metadata, flow, the version
+handshake and OTA orchestration (plan §1.3). Audio sequence tracking is
+per-stream, so interleaved control frames never look like an audio gap. The
+codec and the audio/control dispatch are host-tested; the per-opcode behaviour
+lands in its later phase.
 
 ## Build & test
 

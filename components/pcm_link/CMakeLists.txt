@@ -6,6 +6,7 @@ idf_component_register(
         "src/cobs.c"
         "src/pcm_frame.c"
         "src/pcm_link_rx.c"
+        "src/control_msg.c"
     INCLUDE_DIRS
         "include"
 )

@@ -31,22 +31,36 @@
  *
  *  Logical frame, serialized little-endian, BEFORE COBS:
  *
- *      offset 0      : seq      (uint8)   sequence number, wraps at 256
- *      offset 1..2   : length   (uint16)  number of PCM payload bytes
- *      offset 3..N   : payload  (length)  interleaved 16-bit stereo PCM
- *      offset N+1    : crc8     (uint8)   CRC-8 over seq..payload (inclusive)
+ *      offset 0      : type     (uint8)   frame_type_t (audio/control/ota/art)
+ *      offset 1      : seq      (uint8)   sequence number, wraps at 256
+ *      offset 2..3   : length   (uint16)  number of payload bytes
+ *      offset 4..N   : payload  (length)  type-dependent (PCM, control msg, ...)
+ *      offset N+1    : crc8     (uint8)   CRC-8 over type..payload (inclusive)
  *
  *  On the wire: COBS(serialized frame) followed by a single 0x00 delimiter.
  *  COBS guarantees the body contains no 0x00, so 0x00 is an unambiguous,
  *  always-resyncable frame boundary even at 3 Mbps without HW flow control.
+ *
+ *  The type byte multiplexes the audio stream with a bidirectional control
+ *  plane (and the OTA / cover-art transfers) over the one validated link; the
+ *  receiver dispatches on it. Audio dominates; everything else is occasional.
  */
 
+/* Logical frame type (first byte of every frame). */
+typedef enum {
+    PCM_LINK_FRAME_AUDIO    = 0x01, /* PCM payload (S3 -> U4WDH), dominant      */
+    PCM_LINK_FRAME_CONTROL  = 0x02, /* control message (bidirectional)          */
+    PCM_LINK_FRAME_OTA_DATA = 0x03, /* U4WDH firmware block (S3 -> U4WDH)        */
+    PCM_LINK_FRAME_ART_DATA = 0x04, /* cover-art image block (S3 -> U4WDH)       */
+} pcm_link_frame_type_t;
+
 /* PCM payload size of a full frame. 512 bytes = 128 stereo samples ~= 2.9 ms
- * of audio at 44.1 kHz. Starting point; tune in Phase B per latency/overhead. */
+ * of audio at 44.1 kHz. Starting point; tune in Phase B per latency/overhead.
+ * Control / OTA / art payloads also fit within this bound (they are chunked). */
 #define PCM_LINK_PAYLOAD_BYTES    512
 
-/* Header (seq + length) + payload + trailer (crc8). */
-#define PCM_LINK_FRAME_HEADER     3
+/* Header (type + seq + length) + payload + trailer (crc8). */
+#define PCM_LINK_FRAME_HEADER     4
 #define PCM_LINK_FRAME_TRAILER    1
 #define PCM_LINK_FRAME_MAX_RAW    (PCM_LINK_FRAME_HEADER + PCM_LINK_PAYLOAD_BYTES + PCM_LINK_FRAME_TRAILER)
 
@@ -85,6 +99,56 @@ typedef enum {
     PCM_LINK_BP_NORMAL   = 0x20, /* buffer nominal    -> hold rate          */
     PCM_LINK_BP_SPEEDUP  = 0x30, /* buffer too empty -> producer hurry up   */
 } pcm_link_bp_cmd_t;
+
+/* ----------------------------------------------------------------------- *
+ *  Control plane (PCM_LINK_FRAME_CONTROL payloads)
+ * ----------------------------------------------------------------------- *
+ *  A control message is carried in a CONTROL frame's payload as:
+ *
+ *      offset 0   : opcode (uint8)   pcm_link_ctrl_op_t
+ *      offset 1.. : args   (n bytes) opcode-dependent
+ *
+ *  The set mirrors the product plan §1.3. Phase 1 defines the wire opcodes
+ *  and a generic codec; the per-opcode behaviour (BT pairing, OTA, AVRCP)
+ *  lands in its later phase. Directionality in the comments is the common
+ *  case, not a hard restriction — the link is full-duplex.
+ */
+typedef enum {
+    /* Bluetooth control / status (S3 <-> U4WDH). */
+    PCM_LINK_CTRL_BT_SCAN_START  = 0x01, /* S3 -> U4: begin sink discovery   */
+    PCM_LINK_CTRL_BT_SCAN_RESULT = 0x02, /* U4 -> S3: one sink (mac+name)     */
+    PCM_LINK_CTRL_BT_PAIR        = 0x03, /* S3 -> U4: pair/connect <mac[6]>   */
+    PCM_LINK_CTRL_BT_STATUS      = 0x04, /* U4 -> S3: <pcm_link_bt_state_t>   */
+    /* Playback / metadata (AVRCP relay). */
+    PCM_LINK_CTRL_AVRCP_EVENT    = 0x10, /* U4 -> S3: steering-wheel <cmd>    */
+    PCM_LINK_CTRL_PLAYBACK_STATE = 0x11, /* S3 -> U4: play/pause/stop <state> */
+    PCM_LINK_CTRL_METADATA       = 0x12, /* S3 -> U4: now-playing title (str) */
+    /* Flow / version / OTA orchestration. */
+    PCM_LINK_CTRL_FLOW           = 0x20, /* either: <pcm_link_bp_cmd_t> echo  */
+    PCM_LINK_CTRL_VERSION        = 0x21, /* either: <proto_version u8>        */
+    PCM_LINK_CTRL_OTA_BEGIN      = 0x22, /* S3 -> U4: <total_len u32 LE>      */
+    PCM_LINK_CTRL_OTA_END        = 0x23, /* S3 -> U4: commit pushed image     */
+    PCM_LINK_CTRL_OTA_ABORT      = 0x24, /* either: cancel in-flight OTA      */
+} pcm_link_ctrl_op_t;
+
+/* AVRCP commands relayed from the car's steering-wheel controls. */
+typedef enum {
+    PCM_LINK_AVRCP_PLAY  = 0x01,
+    PCM_LINK_AVRCP_PAUSE = 0x02,
+    PCM_LINK_AVRCP_NEXT  = 0x03,
+    PCM_LINK_AVRCP_PREV  = 0x04,
+} pcm_link_avrcp_cmd_t;
+
+/* Bluetooth connection state reported by the U4WDH. */
+typedef enum {
+    PCM_LINK_BT_DISCONNECTED = 0x00,
+    PCM_LINK_BT_CONNECTING   = 0x01,
+    PCM_LINK_BT_CONNECTED    = 0x02,
+} pcm_link_bt_state_t;
+
+/* Current UART control-plane protocol version (bumped on wire changes; the
+ * two chips exchange it via PCM_LINK_CTRL_VERSION at boot, plan §4.5). */
+#define PCM_LINK_PROTO_VERSION    1
 
 /* ----------------------------------------------------------------------- *
  *  Jitter buffer sizing (U4WDH side). PCM SRAM only — no PSRAM on U4WDH.
