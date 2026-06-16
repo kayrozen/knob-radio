@@ -123,6 +123,7 @@ typedef enum {
     PCM_LINK_CTRL_AVRCP_EVENT    = 0x10, /* U4 -> S3: steering-wheel <cmd>    */
     PCM_LINK_CTRL_PLAYBACK_STATE = 0x11, /* S3 -> U4: play/pause/stop <state> */
     PCM_LINK_CTRL_METADATA       = 0x12, /* S3 -> U4: now-playing title (str) */
+    PCM_LINK_CTRL_DAC_MUTE       = 0x13, /* S3 -> U4: DAC XSMT <1=mute/0=on>  */
     /* Flow / version / OTA orchestration. */
     PCM_LINK_CTRL_FLOW           = 0x20, /* either: <pcm_link_bp_cmd_t> echo  */
     PCM_LINK_CTRL_VERSION        = 0x21, /* either: <proto_version u8>        */

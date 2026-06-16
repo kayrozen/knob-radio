@@ -1,9 +1,13 @@
 # Base sources/requirements (the TONE build = plain ESP-IDF, phases B-D).
+# audio_output + dac_control are always compiled (the analog path is selected
+# at boot, but both paths build everywhere so CI compile-checks the DAC code).
 set(srcs
     "app_main.c"
     "pcm_source.c"
     "uart_writer.c"
     "backpressure_rx.c"
+    "audio_output.c"
+    "dac_control.c"
     "station.c")            # small, dependency-free; always compiled
 set(reqs pcm_link driver nvs_flash esp_timer)
 
@@ -33,12 +37,26 @@ endif()
 # when the UI is enabled, but (per the note above) its REQUIRES can't be
 # Kconfig-gated, so esp_lcd is required unconditionally — negligible for the
 # non-UI builds, which already pull the managed components anyway.
+# The shared I2C bus is needed by the touch (UI) and/or the haptic.
+set(need_i2c_bus OFF)
+
 if(CONFIG_PRESET_ENABLE_UI)
-    # i2c_bus: shared bus manager for the touch + (Phase 6) haptic.
     # display_st77916: panel bring-up + PWM backlight, used by ui.c.
     # touch_cst816: CST816S capacitive touch -> LVGL indev.
-    list(APPEND srcs "ui.c" "display_st77916.c" "i2c_bus.c" "touch_cst816.c")
+    list(APPEND srcs "ui.c" "display_st77916.c" "touch_cst816.c")
+    set(need_i2c_bus ON)
 endif()
+
+# Haptic (DRV2605) on the shared I2C bus.
+if(CONFIG_PRESET_ENABLE_HAPTIC)
+    list(APPEND srcs "haptic.c")
+    set(need_i2c_bus ON)
+endif()
+
+if(need_i2c_bus)
+    list(APPEND srcs "i2c_bus.c")
+endif()
+
 list(APPEND reqs esp_lcd esp_lvgl_port lvgl esp_lcd_st77916 esp_lcd_touch_cst816s)
 
 idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES ${reqs})

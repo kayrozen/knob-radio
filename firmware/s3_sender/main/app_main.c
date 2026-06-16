@@ -15,8 +15,11 @@
 #include "sdkconfig.h"
 
 #include "pcm_source.h"
-#include "uart_writer.h"
-#include "backpressure_rx.h"
+#include "audio_output.h"
+
+#if defined(CONFIG_PRESET_ENABLE_HAPTIC)
+#include "haptic.h"
+#endif
 
 #if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
 #include "station.h"
@@ -31,8 +34,9 @@
 static const char *TAG = "s3_main";
 
 #if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
-/* Encoder callback: re-point the pipeline at the new station and refresh UI. */
-static void on_station_change(int index)
+/* Apply a new station: re-point the pipeline and refresh the UI. Shared by the
+ * encoder and the touch buttons (the haptic differs per source — see below). */
+static void apply_station(int index)
 {
     const station_t *st = station_get(index);
     if (!st) {
@@ -44,13 +48,24 @@ static void on_station_change(int index)
 #endif
 }
 
+/* Encoder detent -> a crisp click (plan §6.2: hand is on the knob). */
+static void on_encoder(int index)
+{
+#if defined(CONFIG_PRESET_ENABLE_HAPTIC)
+    haptic_play(HAPTIC_CLICK);
+#endif
+    apply_station(index);
+}
+
 #if defined(CONFIG_PRESET_ENABLE_UI)
-/* UI touch-button callback: advance the station, like an encoder detent. The
- * encoder advances internally and calls on_station_change(new_index); the
- * touch buttons hand us a delta, so we advance here then apply. */
+/* UI touch-button callback: advance the station like an encoder detent, with a
+ * lighter tap. The encoder advances internally; the buttons hand us a delta. */
 static void on_ui_nav(int delta)
 {
-    on_station_change(station_advance(delta));
+#if defined(CONFIG_PRESET_ENABLE_HAPTIC)
+    haptic_play(HAPTIC_TICK);
+#endif
+    apply_station(station_advance(delta));
 }
 #endif
 
@@ -69,7 +84,7 @@ static void phase_e_start(void)
     ui_start(on_ui_nav);              /* core 0 */
 #endif
     encoder_start(CONFIG_PRESET_ENC_GPIO_A, CONFIG_PRESET_ENC_GPIO_B,
-                  on_station_change); /* core 0 */
+                  on_encoder);        /* core 0 */
 }
 #endif
 
@@ -84,11 +99,23 @@ void app_main(void)
     ESP_LOGI(TAG, "hello S3 — PCM -> COBS/UART forward link");
 
     pcm_source_init();
-    backpressure_rx_start();   /* listen before we start pacing */
-    uart_writer_start();       /* core 1: drains pcm_source -> COBS -> UART */
+
+#if defined(CONFIG_PRESET_ENABLE_HAPTIC)
+    haptic_init();
+#endif
+
+    audio_output_mode_t out_mode = AUDIO_OUTPUT_BT;
+#if defined(CONFIG_PRESET_OUTPUT_ANALOG)
+    out_mode = AUDIO_OUTPUT_ANALOG;
+#endif
+    audio_output_start(out_mode);   /* BT: UART+A2DP / ANALOG: I2S->DAC */
 
 #if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
     phase_e_start();
+#endif
+
+#if defined(CONFIG_PRESET_ENABLE_HAPTIC)
+    haptic_play(HAPTIC_READY);
 #endif
 
     ESP_LOGI(TAG, "free heap: %lu bytes", (unsigned long)esp_get_free_heap_size());

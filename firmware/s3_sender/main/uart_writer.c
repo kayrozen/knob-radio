@@ -6,6 +6,7 @@
 #include "backpressure_rx.h"
 #include "pcm_link_proto.h"
 #include "pcm_frame.h"
+#include "control_msg.h"
 
 #include "driver/uart.h"
 #include "freertos/FreeRTOS.h"
@@ -66,8 +67,12 @@ static void uart_tx_task(void *arg)
     }
 }
 
-void uart_writer_start(void)
+void uart_writer_init_link(void)
 {
+    static bool installed;
+    if (installed) {
+        return;
+    }
     const uart_config_t cfg = {
         .baud_rate = PCM_LINK_FORWARD_BAUD,
         .data_bits = UART_DATA_8_BITS,
@@ -84,10 +89,25 @@ void uart_writer_start(void)
     ESP_ERROR_CHECK(uart_set_pin(FORWARD_UART_NUM, PCM_LINK_S3_TX_GPIO,
                                  PCM_LINK_S3_RX_GPIO,
                                  UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    installed = true;
 
-    ESP_LOGI(TAG, "UART1 TX GPIO%d / RX GPIO%d @ %d baud; frame period %.3f ms",
-             PCM_LINK_S3_TX_GPIO, PCM_LINK_S3_RX_GPIO, PCM_LINK_FORWARD_BAUD,
-             FRAME_PERIOD_US / 1000.0);
+    ESP_LOGI(TAG, "UART1 TX GPIO%d / RX GPIO%d @ %d baud",
+             PCM_LINK_S3_TX_GPIO, PCM_LINK_S3_RX_GPIO, PCM_LINK_FORWARD_BAUD);
+}
 
+void uart_writer_send_control(uint8_t op, const uint8_t *args, uint16_t len)
+{
+    static uint8_t seq;
+    uint8_t wire[PCM_LINK_FRAME_MAX_WIRE];
+    size_t w = pcm_link_ctrl_build_frame(seq++, op, args, len, wire);
+    if (w) {
+        uart_write_bytes(FORWARD_UART_NUM, wire, w);
+    }
+}
+
+void uart_writer_start(void)
+{
+    uart_writer_init_link();
+    ESP_LOGI(TAG, "audio writer up; frame period %.3f ms", FRAME_PERIOD_US / 1000.0);
     xTaskCreatePinnedToCore(uart_tx_task, "uart_tx", 4096, NULL, 12, NULL, 1);
 }

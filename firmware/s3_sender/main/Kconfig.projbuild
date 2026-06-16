@@ -29,6 +29,29 @@ config PRESET_WIFI_PASSWORD
     default "mypassword"
     depends on PRESET_AUDIO_SOURCE_ADF
 
+choice PRESET_OUTPUT_MODE
+    prompt "Audio output path"
+    default PRESET_OUTPUT_BT
+    help
+        BT: stream PCM over COBS/UART to the U4WDH, which is the A2DP source to
+        the car (default). ANALOG: the S3 decodes straight to its I2S -> PCM5100
+        DAC -> line-out/AUX, with the U4WDH unused for audio (plan §5). Both code
+        paths always compile; this only selects the default at boot.
+
+    config PRESET_OUTPUT_BT
+        bool "Bluetooth A2DP (via U4WDH)"
+
+    config PRESET_OUTPUT_ANALOG
+        bool "Analog line-out (PCM5100 DAC)"
+endchoice
+
+config PRESET_ENABLE_HAPTIC
+    bool "Enable DRV2605 haptic feedback (shared I2C)"
+    default n
+    help
+        Brings up the DRV2605 LRA driver on the shared I2C bus and plays a short
+        effect on station changes, boot, etc. (plan §6). Independent of the UI.
+
 config PRESET_ENABLE_UI
     bool "Enable LVGL UI on the round display (JC3636W518V2)"
     default n

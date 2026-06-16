@@ -133,8 +133,26 @@ cd firmware/u4wdh_bridge && idf.py build -DA2DP_TARGET_NAME='"My Car"'
 - **Phase F (real car)** — field test; WiFi auto-reconnect (`wifi_sta.c`) covers
   the tunnel-drop/recovery case. See the plan.
 
-## What this prototype does NOT do
+## Product build-out (on top of the prototype)
 
-Provisioning/OTA/telemetry, a full station playlist, haptics/mic/SD, branding,
-the analog PCM5100 DAC (output is Bluetooth), or any hardware re-validation
-(already confirmed from the schematics). See plan §9.
+Work toward the full product (dual-chip, plan in the issue) layered on the
+validated prototype, behind Kconfig and compiled in CI:
+
+- **Control plane** — the COBS frame gained a `type` byte (`AUDIO`/`CONTROL`/
+  `OTA_DATA`/`ART_DATA`) and a CONTROL message codec (`control_msg.c`), so the
+  one link multiplexes audio with control. Host-tested.
+- **Display + touch** — `display_st77916.c` (QSPI + PWM backlight dimming) and
+  `touch_cst816.c` (CST816S) over the shared, mutex-guarded I2C bus
+  (`i2c_bus.c`); pins in `board_pins.h` (from the schematic).
+- **Haptic** — `haptic.c` (DRV2605 LRA) on the same I2C bus: a click on encoder
+  detents, a lighter tap on touch, plus boot/error effects.
+- **Analog output** — `audio_output.c` routes either Bluetooth (UART→U4WDH→A2DP)
+  or **analog** (`dac_control.c`: S3 I2S → PCM5100, CH445P source switch). The
+  DAC's XSMT mute lives on the U4WDH, so analog mode un-mutes it over the
+  control plane (`dac_mute.c` + `PCM_LINK_CTRL_DAC_MUTE`).
+
+## What this prototype does NOT do (yet)
+
+Provisioning/captive portal, OTA, telemetry, a full station playlist, mic/SD,
+branding, image signing — see the product plan's phase list. No hardware
+re-validation is needed (pins confirmed from the schematics).

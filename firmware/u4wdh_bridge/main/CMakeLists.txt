@@ -5,6 +5,7 @@ idf_component_register(
         "uart_reader.c"
         "backpressure.c"
         "a2dp_bridge.c"
+        "dac_mute.c"
     INCLUDE_DIRS
         "."
     REQUIRES

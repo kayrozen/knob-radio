@@ -5,6 +5,7 @@
 #include "pcm_link_proto.h"
 #include "pcm_link_rx.h"
 #include "control_msg.h"
+#include "dac_mute.h"
 
 #include "driver/uart.h"
 #include "driver/gpio.h"
@@ -35,7 +36,18 @@ static void on_control(uart_reader_ctx_t *ctx, const pcm_frame_t *frame)
     if (!pcm_link_ctrl_parse(frame, &msg)) {
         return;
     }
-    ESP_LOGI(TAG, "control op=0x%02x args=%u", msg.op, (unsigned)msg.arg_len);
+
+    switch (msg.op) {
+    case PCM_LINK_CTRL_DAC_MUTE:
+        /* analog mode: the S3 owns the DAC and asks us to (un)mute XSMT. */
+        if (msg.arg_len >= 1) {
+            dac_mute_set(msg.args[0] != 0);
+        }
+        break;
+    default:
+        ESP_LOGI(TAG, "control op=0x%02x args=%u", msg.op, (unsigned)msg.arg_len);
+        break;
+    }
 }
 
 /* Called by the reassembler for each CRC-valid frame; dispatch on type. */
