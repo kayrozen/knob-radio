@@ -21,7 +21,7 @@ Full plan (phases, risks, deliverable): [`docs/prototype-plan.md`](docs/prototyp
 | Path | What |
 |---|---|
 | `components/pcm_link/` | **Shared protocol** (used by both firmwares + host tests): COBS codec, logical frame (seq/length/payload/crc8), streaming reassembler, wire constants & pinout. Pure C, no ESP-IDF deps. |
-| `firmware/s3_sender/` | **ESP32-S3** sender (ESP-IDF, target `esp32s3`). PCM source → frame → COBS → UART TX, plus return-channel backpressure listener. |
+| `firmware/s3_sender/` | **ESP32-S3** sender (ESP-IDF, target `esp32s3`). PCM source → frame → COBS → UART TX, plus return-channel backpressure listener. Phase E adds the ESP-ADF radio pipeline, WiFi, rotary encoder, station list and optional LVGL UI (all behind Kconfig). |
 | `firmware/u4wdh_bridge/` | **ESP32-U4WDH** bridge (ESP-IDF, target `esp32`). UART RX → COBS decode → CRC/seq → jitter buffer → A2DP source, plus backpressure transmit. |
 | `test/host/` | Host unit tests (no hardware): COBS round-trip & overhead, frame build/parse, CRC detection, **resync-after-corruption**, jitter buffer wrap/overrun/underrun. |
 | `.github/workflows/ci.yml` | CI: runs host tests + compiles both firmwares with ESP-IDF v5.3. |
@@ -56,12 +56,23 @@ make -C test/host test
 
 ### Firmware (needs ESP-IDF v5.x)
 ```sh
-# S3 sender
+# S3 sender — default TONE build (phases B-D, no WiFi)
 cd firmware/s3_sender && idf.py set-target esp32s3 && idf.py build
 
 # U4WDH bridge
 cd firmware/u4wdh_bridge && idf.py set-target esp32 && idf.py build
 ```
+
+### S3 Phase E — real internet radio (needs ESP-ADF, `ADF_PATH` exported)
+```sh
+cd firmware/s3_sender
+idf.py menuconfig    # Preset S3 sender -> PCM audio source -> ESP-ADF; set WiFi SSID/pass
+#                    # (optional) Enable LVGL UI on the round display
+idf.py set-target esp32s3 build
+```
+`menuconfig` options live under **Preset S3 sender**: audio source (tone/ADF),
+WiFi credentials, the LVGL UI toggle, and the encoder GPIOs. The UI pulls the
+LVGL/`esp_lcd_st77916` managed components automatically when enabled.
 
 The two chips have **separate USB-C ports** — flash each via its own port:
 ```sh
@@ -82,12 +93,17 @@ cd firmware/u4wdh_bridge && idf.py build -DA2DP_TARGET_NAME='"My Car"'
   return-channel backpressure loop that nudges the S3's pacing. The S3 currently
   feeds a deterministic **test tone** (`pcm_source.c`) so the link can be
   characterised without WiFi.
-- **Phase E (real network + UI)** — *integration point, not built here.* Swap
-  `pcm_source` for the ESP-ADF pipeline (WiFi → http/hls_stream → decoder →
-  resample → PCM) and add the LVGL UI on the rotary encoder. The `uart_writer`
-  framing path is unchanged — see the header comments in
-  `firmware/s3_sender/main/pcm_source.h` and `uart_writer.h`.
-- **Phase F (real car)** — field test; see the plan.
+- **Phase E (real network + UI)** — implemented behind Kconfig. The ADF build
+  brings up WiFi + an ESP-ADF pipeline (`http_stream` → auto decoder → resample
+  → `raw_stream`) feeding the same COBS/UART path; the rotary encoder switches
+  stations (`adf_pipeline.c`, `encoder.c`, `station.c`), and switching only
+  pauses PCM — the S3 emits silence so the U4WDH's A2DP link survives. An
+  optional LVGL UI (`ui.c`) on the round display runs on core 0, away from the
+  audio/UART work on core 1. The ESP-ADF audio build is compiled in CI
+  (`.github/workflows/phase-e.yml`); the LVGL panel driver is board-specific and
+  validated on hardware, not in CI.
+- **Phase F (real car)** — field test; WiFi auto-reconnect (`wifi_sta.c`) covers
+  the tunnel-drop/recovery case. See the plan.
 
 ## What this prototype does NOT do
 

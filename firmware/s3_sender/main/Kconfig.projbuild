@@ -1,0 +1,49 @@
+menu "Preset S3 sender"
+
+choice PRESET_AUDIO_SOURCE
+    prompt "PCM audio source"
+    default PRESET_AUDIO_SOURCE_TONE
+    help
+        Selects what feeds the COBS/UART forward link.
+
+        TONE: deterministic test signal (no WiFi). Validates the link/jitter/
+        drift path (phases B-D) and builds with plain ESP-IDF.
+
+        ADF: real internet radio via ESP-ADF (WiFi -> http_stream -> decoder ->
+        resample -> PCM). Phase E. Requires ESP-ADF (ADF_PATH set at build).
+
+    config PRESET_AUDIO_SOURCE_TONE
+        bool "Test tone (phases B-D)"
+
+    config PRESET_AUDIO_SOURCE_ADF
+        bool "ESP-ADF internet radio (phase E)"
+endchoice
+
+config PRESET_WIFI_SSID
+    string "WiFi SSID"
+    default "myssid"
+    depends on PRESET_AUDIO_SOURCE_ADF
+
+config PRESET_WIFI_PASSWORD
+    string "WiFi password"
+    default "mypassword"
+    depends on PRESET_AUDIO_SOURCE_ADF
+
+config PRESET_ENABLE_UI
+    bool "Enable LVGL UI on the round display (JC3636W518V2)"
+    default n
+    help
+        Brings up the round LCD (ST77916 QSPI) + LVGL on core 0 to show the
+        current station. Independent of the audio path so it can be left off
+        while validating audio. Requires the managed LVGL/esp_lvgl_port
+        components (fetched automatically when enabled).
+
+config PRESET_ENC_GPIO_A
+    int "Rotary encoder phase-A GPIO (EC1)"
+    default 8
+
+config PRESET_ENC_GPIO_B
+    int "Rotary encoder phase-B GPIO (EC1)"
+    default 7
+
+endmenu

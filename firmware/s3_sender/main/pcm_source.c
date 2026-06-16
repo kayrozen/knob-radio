@@ -1,12 +1,44 @@
 /*
- * pcm_source.c — test PCM generator (see pcm_source.h).
+ * pcm_source.c — PCM producer (see pcm_source.h).
  *
- * Generates a continuous L/R tone pair (different frequencies per channel so a
- * scope/ear can confirm stereo integrity end-to-end). Deterministic and
- * codec-free; replaced by the ESP-ADF pipeline output in Phase E.
+ * Two implementations selected by Kconfig:
+ *   - TONE (default): deterministic L/R test tone, no WiFi. Phases B-D.
+ *   - ADF: pulls real internet-radio PCM from the ESP-ADF pipeline. Phase E.
+ *
+ * Either way the output contract is identical (44.1k/16/stereo, always returns
+ * `len`), so the downstream framing/UART writer never changes.
  */
 #include "pcm_source.h"
 #include "pcm_link_proto.h"
+#include "sdkconfig.h"
+
+#include <string.h>
+
+#if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
+
+#include "adf_pipeline.h"
+
+void pcm_source_init(void) { /* pipeline is started from app_main */ }
+
+size_t pcm_source_read(uint8_t *dst, size_t len)
+{
+    size_t got = 0;
+    while (got < len) {
+        int n = adf_pipeline_read(dst + got, len - got);
+        if (n <= 0) {
+            break;   /* (re)buffering or mid-switch */
+        }
+        got += (size_t)n;
+    }
+    if (got < len) {
+        /* Silence-fill the shortfall: keeps the link cadence and the U4WDH's
+         * A2DP connection alive across rebuffering and station switches. */
+        memset(dst + got, 0, len - got);
+    }
+    return len;
+}
+
+#else  /* CONFIG_PRESET_AUDIO_SOURCE_TONE (default) */
 
 #include <math.h>
 
@@ -29,11 +61,11 @@ size_t pcm_source_read(uint8_t *dst, size_t len)
     const double dr = 2.0 * M_PI * RIGHT_HZ / PCM_LINK_SAMPLE_RATE_HZ;
 
     int16_t *out = (int16_t *)dst;
-    size_t samples = len / sizeof(int16_t);      /* total int16 slots */
+    size_t samples = len / sizeof(int16_t);
 
     for (size_t i = 0; i + 1 < samples; i += 2) {
-        out[i]     = (int16_t)(AMPLITUDE * sin(s_phase_l)); /* L */
-        out[i + 1] = (int16_t)(AMPLITUDE * sin(s_phase_r)); /* R */
+        out[i]     = (int16_t)(AMPLITUDE * sin(s_phase_l));
+        out[i + 1] = (int16_t)(AMPLITUDE * sin(s_phase_r));
         s_phase_l += dl;
         s_phase_r += dr;
         if (s_phase_l > 2.0 * M_PI) { s_phase_l -= 2.0 * M_PI; }
@@ -41,3 +73,5 @@ size_t pcm_source_read(uint8_t *dst, size_t len)
     }
     return len;
 }
+
+#endif

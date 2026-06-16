@@ -1,0 +1,43 @@
+name: Phase E build (ESP-ADF)
+
+# Builds the S3 sender's Phase-E variant (real internet-radio pipeline) against
+# a real ESP-ADF checkout. Separate from the main CI so the fast, authoritative
+# host-test + plain-IDF builds are never gated on this heavier job. The LVGL UI
+# is left off here (board-specific panel driver, validated on hardware only);
+# this job proves the ESP-ADF audio pipeline compiles.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "firmware/s3_sender/**"
+      - "components/pcm_link/**"
+      - ".github/workflows/phase-e.yml"
+
+jobs:
+  build-adf:
+    name: Build s3_sender (ADF audio, esp32s3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout ESP-ADF (with submodules incl. esp-idf)
+        uses: actions/checkout@v4
+        with:
+          repository: espressif/esp-adf
+          ref: v2.7
+          path: esp-adf
+          submodules: recursive
+
+      - name: Install toolchain & build
+        run: |
+          set -e
+          export ADF_PATH="$GITHUB_WORKSPACE/esp-adf"
+          export IDF_PATH="$ADF_PATH/esp-idf"
+          "$IDF_PATH/install.sh" esp32s3
+          . "$IDF_PATH/export.sh"
+          cd firmware/s3_sender
+          # Enable the ESP-ADF audio source on top of the project defaults.
+          printf 'CONFIG_PRESET_AUDIO_SOURCE_ADF=y\n' > sdkconfig.defaults.phase_e
+          idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.phase_e" \
+                 set-target esp32s3 build
