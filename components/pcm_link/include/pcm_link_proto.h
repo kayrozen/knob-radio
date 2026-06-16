@@ -87,11 +87,15 @@ typedef enum {
 } pcm_link_bp_cmd_t;
 
 /* ----------------------------------------------------------------------- *
- *  Jitter buffer targets (U4WDH side). PCM SRAM only — no PSRAM on U4WDH.
- * ----------------------------------------------------------------------- */
-#define PCM_LINK_JITTER_TARGET_MS 220   /* aim point between under/overrun  */
-#define PCM_LINK_JITTER_LOW_MS    120   /* below -> request SPEEDUP          */
-#define PCM_LINK_JITTER_HIGH_MS   320   /* above -> request SLOWDOWN          */
-#define PCM_LINK_JITTER_MAX_MS    420   /* ring capacity ceiling             */
+ *  Jitter buffer sizing (U4WDH side). PCM SRAM only — no PSRAM on U4WDH.
+ * ----------------------------------------------------------------------- *
+ *  MAX is the *nominal* capacity the bridge tries to allocate. Because the
+ *  classic-BT stack consumes most of the ESP32's internal DRAM, the bridge
+ *  falls back to a smaller buffer (down to MIN) if MAX cannot be allocated
+ *  while leaving headroom for BT — and the backpressure thresholds are then
+ *  derived as fractions of whatever capacity was actually obtained. */
+#define PCM_LINK_JITTER_TARGET_MS 220   /* nominal aim point                 */
+#define PCM_LINK_JITTER_MAX_MS    420   /* nominal ring capacity ceiling     */
+#define PCM_LINK_JITTER_MIN_MS    100   /* absolute floor for the fallback   */
 
 #endif /* PCM_LINK_PROTO_H */

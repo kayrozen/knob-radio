@@ -48,6 +48,11 @@ size_t jb_free(const jitter_buffer_t *jb);
  * the link sample rate (helper for backpressure thresholds). */
 uint32_t jb_filled_ms(const jitter_buffer_t *jb);
 
+/* Total capacity expressed as milliseconds of audio at the link sample rate.
+ * Backpressure thresholds are derived from this so they adapt when the buffer
+ * is allocated smaller than nominal (degraded-RAM fallback). */
+uint32_t jb_capacity_ms(const jitter_buffer_t *jb);
+
 /*
  * Push `len` bytes. Returns true if the whole payload was stored, false if it
  * would overrun (in which case nothing is written and overruns++).

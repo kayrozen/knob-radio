@@ -19,12 +19,19 @@ static void backpressure_task(void *arg)
     jitter_buffer_t *jb = (jitter_buffer_t *)arg;
     pcm_link_bp_cmd_t last = PCM_LINK_BP_NORMAL;
 
+    /* Thresholds as fractions of the *actual* buffer capacity, so they stay
+     * sane even when the buffer was allocated smaller than nominal (the
+     * degraded-RAM fallback). High at 75%, low at 30% of capacity. */
+    uint32_t cap_ms = jb_capacity_ms(jb);
+    uint32_t high_ms = cap_ms * 75u / 100u;
+    uint32_t low_ms  = cap_ms * 30u / 100u;
+
     for (;;) {
         uint32_t ms = jb_filled_ms(jb);
         pcm_link_bp_cmd_t cmd;
-        if (ms > PCM_LINK_JITTER_HIGH_MS) {
+        if (ms > high_ms) {
             cmd = PCM_LINK_BP_SLOWDOWN;
-        } else if (ms < PCM_LINK_JITTER_LOW_MS) {
+        } else if (ms < low_ms) {
             cmd = PCM_LINK_BP_SPEEDUP;
         } else {
             cmd = PCM_LINK_BP_NORMAL;

@@ -143,10 +143,8 @@ static void a2dp_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param)
     }
 }
 
-void a2dp_bridge_start(jitter_buffer_t *jb)
+void a2dp_bridge_init(void)
 {
-    s_jb = jb;
-
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
 
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
@@ -164,7 +162,17 @@ void a2dp_bridge_start(jitter_buffer_t *jb)
     esp_bt_gap_set_device_name("Preset-Bridge");
     esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
 
-    ESP_LOGI(TAG, "A2DP source up; scanning for sink '%s'",
+    ESP_LOGI(TAG, "A2DP source stack up (discovery not started yet)");
+}
+
+void a2dp_bridge_set_buffer(jitter_buffer_t *jb)
+{
+    s_jb = jb;
+}
+
+void a2dp_bridge_start_discovery(void)
+{
+    ESP_LOGI(TAG, "scanning for sink '%s'",
              A2DP_TARGET_NAME[0] ? A2DP_TARGET_NAME : "<first audio sink>");
     esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
 }
