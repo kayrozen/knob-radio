@@ -5,6 +5,7 @@
 #include "board_pins.h"
 #include "pcm_link_proto.h"
 
+#include "freertos/FreeRTOS.h"
 #include "driver/i2s_std.h"
 #include "driver/gpio.h"
 #include "esp_log.h"

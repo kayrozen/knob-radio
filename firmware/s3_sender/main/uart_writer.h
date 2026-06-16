@@ -13,6 +13,8 @@
 #ifndef UART_WRITER_H
 #define UART_WRITER_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
