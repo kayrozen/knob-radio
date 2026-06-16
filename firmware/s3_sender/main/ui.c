@@ -1,41 +1,27 @@
 /*
  * ui.c — see ui.h.
  *
- * Panel: Guition JC3636W518V2, 360x360 round, ST77916 over QSPI. Brought up via
- * the managed esp_lcd_st77916 driver + esp_lvgl_port. Pin assignments below are
- * the best-known values for this module and MUST be confirmed against the board
- * before trusting the display; they do not affect whether the firmware builds.
+ * The round-panel bring-up (ST77916 QSPI + PWM backlight) lives in
+ * display_st77916.c; this file owns the LVGL layer on top: esp_lvgl_port glue
+ * and the preset screen. Panel pins are centralized in display_st77916.c.
  */
 #include "ui.h"
 #include "station.h"
+#include "display_st77916.h"
 
 #include <string.h>
 
 #include "esp_log.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
-#include "driver/spi_master.h"
-#include "driver/gpio.h"
-#include "esp_lcd_st77916.h"
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
 
 static const char *TAG = "ui";
 
-/* --- JC3636W518V2 panel pins (QSPI). VERIFY against the board. --- */
-#define LCD_HOST            SPI2_HOST
-#define LCD_H_RES           360
-#define LCD_V_RES           360
-#define LCD_BIT_PER_PIXEL   16
-
-#define PIN_LCD_SCLK        40
-#define PIN_LCD_CS          21
-#define PIN_LCD_D0          46
-#define PIN_LCD_D1          45
-#define PIN_LCD_D2          42
-#define PIN_LCD_D3          41
-#define PIN_LCD_RST         -1
-#define PIN_LCD_BL          5
+#define LCD_H_RES           DISPLAY_H_RES
+#define LCD_V_RES           DISPLAY_V_RES
+#define LCD_BIT_PER_PIXEL   DISPLAY_BITS_PER_PIXEL
 
 /* --- Brand palette (dark theme, modern orange accent) --- */
 #define COLOR_BG      lv_color_hex(0x111111)
@@ -207,39 +193,9 @@ void ui_set_station(int index, const char *name)
 
 void ui_start(void)
 {
-    if (PIN_LCD_BL >= 0) {
-        gpio_config_t bk = {
-            .mode = GPIO_MODE_OUTPUT,
-            .pin_bit_mask = 1ULL << PIN_LCD_BL,
-        };
-        gpio_config(&bk);
-        gpio_set_level(PIN_LCD_BL, 1);
-    }
-
-    const spi_bus_config_t buscfg = ST77916_PANEL_BUS_QSPI_CONFIG(
-        PIN_LCD_SCLK, PIN_LCD_D0, PIN_LCD_D1, PIN_LCD_D2, PIN_LCD_D3,
-        LCD_H_RES * LCD_V_RES * LCD_BIT_PER_PIXEL / 8);
-    ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &buscfg, SPI_DMA_CH_AUTO));
-
     esp_lcd_panel_io_handle_t io = NULL;
-    const esp_lcd_panel_io_spi_config_t io_cfg =
-        ST77916_PANEL_IO_QSPI_CONFIG(PIN_LCD_CS, NULL, NULL);
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(LCD_HOST, &io_cfg, &io));
-
-    st77916_vendor_config_t vendor_cfg = {
-        .flags = { .use_qspi_interface = 1 },
-    };
-    const esp_lcd_panel_dev_config_t panel_cfg = {
-        .reset_gpio_num = PIN_LCD_RST,
-        .rgb_ele_order  = LCD_RGB_ELEMENT_ORDER_RGB,
-        .bits_per_pixel = LCD_BIT_PER_PIXEL,
-        .vendor_config  = &vendor_cfg,
-    };
     esp_lcd_panel_handle_t panel = NULL;
-    ESP_ERROR_CHECK(esp_lcd_new_panel_st77916(io, &panel_cfg, &panel));
-    ESP_ERROR_CHECK(esp_lcd_panel_reset(panel));
-    ESP_ERROR_CHECK(esp_lcd_panel_init(panel));
-    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel, true));
+    ESP_ERROR_CHECK(display_st77916_init(&io, &panel));
 
     const lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
     ESP_ERROR_CHECK(lvgl_port_init(&lvgl_cfg));
@@ -263,5 +219,8 @@ void ui_start(void)
     s_active_dot = -1;   /* no dot lit yet; ui_set_station lights the current */
     const station_t *st = station_current_station();
     ui_set_station(station_current(), st ? st->name : "");
+
+    /* Raise the backlight now that the screen shows content, not noise. */
+    display_st77916_set_brightness(100);
     ESP_LOGI(TAG, "UI up on %dx%d round panel", LCD_H_RES, LCD_V_RES);
 }

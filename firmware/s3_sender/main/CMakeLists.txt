@@ -34,7 +34,9 @@ endif()
 # Kconfig-gated, so esp_lcd is required unconditionally — negligible for the
 # non-UI builds, which already pull the managed components anyway.
 if(CONFIG_PRESET_ENABLE_UI)
-    list(APPEND srcs "ui.c")
+    # i2c_bus: shared bus manager for the (Phase 3) touch + (Phase 6) haptic.
+    # display_st77916: panel bring-up + PWM backlight, used by ui.c.
+    list(APPEND srcs "ui.c" "display_st77916.c" "i2c_bus.c")
 endif()
 list(APPEND reqs esp_lcd esp_lvgl_port lvgl esp_lcd_st77916)
 
