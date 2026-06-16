@@ -40,6 +40,14 @@ jobs:
           # Enable the ESP-ADF audio source on top of the project defaults.
           # (The FreeRTOS backward-compatibility option ADF needs lives in the
           # committed sdkconfig.defaults so on-hardware ADF builds get it too.)
-          printf 'CONFIG_PRESET_AUDIO_SOURCE_ADF=y\n' > sdkconfig.defaults.phase_e
+          # ESP-ADF's root CMakeLists registers its whole component tree,
+          # including the board-specific audio_board, which defaults to the
+          # LyraT v4.3 (ESP32) pin map and won't compile for the S3. We never
+          # touch a codec/board (output is PCM over UART), but the table still
+          # has to build, so pick an ESP32-S3 board for valid GPIO constants.
+          {
+            printf 'CONFIG_PRESET_AUDIO_SOURCE_ADF=y\n'
+            printf 'CONFIG_ESP32_S3_KORVO2_V3_BOARD=y\n'
+          } > sdkconfig.defaults.phase_e
           idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.phase_e" \
                  set-target esp32s3 build

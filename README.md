@@ -68,11 +68,18 @@ cd firmware/u4wdh_bridge && idf.py set-target esp32 && idf.py build
 cd firmware/s3_sender
 idf.py menuconfig    # Preset S3 sender -> PCM audio source -> ESP-ADF; set WiFi SSID/pass
 #                    # (optional) Enable LVGL UI on the round display
+#                    # Audio HAL -> Audio board -> pick any ESP32-S3 board (e.g. S3-Korvo-2)
 idf.py set-target esp32s3 build
 ```
 `menuconfig` options live under **Preset S3 sender**: audio source (tone/ADF),
 WiFi credentials, the LVGL UI toggle, and the encoder GPIOs. The UI pulls the
 LVGL/`esp_lcd_st77916` managed components automatically when enabled.
+
+ESP-ADF registers its whole component tree, including the board-specific
+`audio_board` whose default (LyraT v4.3) is an ESP32 pin map that won't compile
+for the S3. We never drive a codec/board — output is PCM over UART — but the
+pin table still has to build, so under **Audio HAL → Audio board** pick any
+ESP32-S3 board (the CI build uses `ESP32-S3-Korvo-2`).
 
 The two chips have **separate USB-C ports** — flash each via its own port:
 ```sh
