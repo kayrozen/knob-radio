@@ -16,14 +16,16 @@
 #include <stdint.h>
 #include "driver/i2c_master.h"
 #include "esp_err.h"
+#include "board_pins.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* Shared-bus pinout (plan §1.2). */
-#define I2C_BUS_SDA_GPIO   11
-#define I2C_BUS_SCL_GPIO   12
+/* Shared-bus pinout (board_pins.h, plan §1.2). External 5.1 kOhm pull-ups
+ * (R5/R6) are on the board, so the internal pull-ups stay off. */
+#define I2C_BUS_SDA_GPIO   BOARD_I2C_SDA
+#define I2C_BUS_SCL_GPIO   BOARD_I2C_SCL
 #define I2C_BUS_FREQ_HZ    400000
 
 /* Initialize the shared bus once (idempotent). Safe to call from each driver's

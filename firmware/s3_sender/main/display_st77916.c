@@ -1,23 +1,11 @@
 /*
  * display_st77916.c — see display_st77916.h.
  *
- * --------------------------------------------------------------------------
- * PINOUT — VERIFY against the JC3636K518 schematic before trusting the panel.
- * --------------------------------------------------------------------------
- * Two sources disagree and neither is confirmed on this board:
- *
- *   (a) The JC3636W518V2 LVGL port these values came from:
- *       SCLK=40, CS=21, D0..D3=46/45/42/41, RST=none, BL=5.
- *   (b) The product plan §2.1 ("confirmés"): QSPI on GPIO13-18 (individual
- *       SCLK/CS/D0-D3 assignment unspecified), RST=GPIO21, BLK=GPIO47, plus
- *       an LCD_TE tearing-effect line.
- *
- * (a) is specific enough to wire, so it is used here; (b) reassigns 21 (CS->RST)
- * and the backlight (5->47), which can't both be right. Resolve against the
- * schematic and update the block below — it is the single source of truth. The
- * choice does not affect whether the firmware builds, only whether pixels show.
+ * Panel pins are the schematic-confirmed values from board_pins.h (ST77916
+ * QSPI on GPIO13-18, RST=21, backlight enable=47 driving MOSFET Q1's gate).
  */
 #include "display_st77916.h"
+#include "board_pins.h"
 
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
@@ -27,17 +15,16 @@
 
 static const char *TAG = "display";
 
-/* --- Panel pins (see the pinout note above). --- */
+/* --- Panel pins (board_pins.h, confirmed from schematic). --- */
 #define LCD_HOST            SPI2_HOST
-#define PIN_LCD_SCLK        40
-#define PIN_LCD_CS          21
-#define PIN_LCD_D0          46
-#define PIN_LCD_D1          45
-#define PIN_LCD_D2          42
-#define PIN_LCD_D3          41
-#define PIN_LCD_RST         (-1)
-#define PIN_LCD_BL          5
-/* #define PIN_LCD_TE       -1   // tearing-effect sync line (plan §2.2); unused */
+#define PIN_LCD_SCLK        BOARD_LCD_QSPI_SCL
+#define PIN_LCD_CS          BOARD_LCD_QSPI_CS
+#define PIN_LCD_D0          BOARD_LCD_QSPI_D0
+#define PIN_LCD_D1          BOARD_LCD_QSPI_D1
+#define PIN_LCD_D2          BOARD_LCD_QSPI_D2
+#define PIN_LCD_D3          BOARD_LCD_QSPI_D3
+#define PIN_LCD_RST         BOARD_LCD_RST
+#define PIN_LCD_BL          BOARD_LCD_BLK
 
 /* --- Backlight PWM (LEDC) --- */
 #define BL_LEDC_TIMER       LEDC_TIMER_0

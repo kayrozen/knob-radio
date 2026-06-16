@@ -29,7 +29,7 @@ esp_err_t i2c_bus_init(void)
         .scl_io_num                   = I2C_BUS_SCL_GPIO,
         .sda_io_num                   = I2C_BUS_SDA_GPIO,
         .glitch_ignore_cnt            = 7,
-        .flags.enable_internal_pullup = true,
+        .flags.enable_internal_pullup = false,  /* external 5.1k R5/R6 on board */
     };
     esp_err_t err = i2c_new_master_bus(&cfg, &s_bus);
     if (err != ESP_OK) {
