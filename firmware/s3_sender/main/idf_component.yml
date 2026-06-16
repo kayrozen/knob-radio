@@ -1,18 +1,13 @@
-# Managed dependencies. The LVGL/display components are pulled ONLY when the UI
-# is enabled (rules gate on the Kconfig option), so the default TONE build and
-# the ADF audio build stay lean and need no network fetch of LVGL.
+# Managed dependencies for s3_sender.
+# LVGL and display components are only compiled when CONFIG_PRESET_ENABLE_UI is
+# set (see CMakeLists.txt), but the component manager does not support Kconfig
+# rules so they are always listed here.  The ADF and TONE builds ignore them.
 dependencies:
   idf: ">=5.1"
 
   espressif/esp_lvgl_port:
     version: "^1.4"
-    rules:
-      - if: "CONFIG_PRESET_ENABLE_UI"
   lvgl/lvgl:
     version: "^8.3"
-    rules:
-      - if: "CONFIG_PRESET_ENABLE_UI"
   espressif/esp_lcd_st77916:
     version: "*"
-    rules:
-      - if: "CONFIG_PRESET_ENABLE_UI"
