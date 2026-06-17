@@ -64,3 +64,4 @@ dependencies.lock
 # --- host tests ---
 test/host/test_pcm_link
 test/host/test_jitter_buffer
+test/host/test_schedule

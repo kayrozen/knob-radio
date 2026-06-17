@@ -26,6 +26,55 @@ static void respond(const char *s)
     usb_serial_jtag_write_bytes((const uint8_t *)s, strlen(s), pdMS_TO_TICKS(200));
 }
 
+/* "HH:MM" -> minutes since midnight (0 on bad input). */
+static uint16_t parse_hhmm(const cJSON *s)
+{
+    if (!cJSON_IsString(s)) {
+        return 0;
+    }
+    int h = 0, m = 0;
+    if (sscanf(s->valuestring, "%d:%d", &h, &m) != 2) {
+        return 0;
+    }
+    if (h < 0 || h > 23 || m < 0 || m > 59) {
+        return 0;
+    }
+    return (uint16_t)(h * 60 + m);
+}
+
+/* Parse the installer's per-preset schedule into a station_sched_t. The payload
+ * uses { mode:'auto'|'manual', days:[Mon..Sun 0/1], start:'HH:MM', end:'HH:MM' }. */
+static station_sched_t parse_schedule(const cJSON *item)
+{
+    station_sched_t sc = { 0 };   /* default: manual */
+    const cJSON *sch = cJSON_GetObjectItem(item, "schedule");
+    if (!cJSON_IsObject(sch)) {
+        return sc;
+    }
+    const cJSON *mode = cJSON_GetObjectItem(sch, "mode");
+    if (!cJSON_IsString(mode) || strcmp(mode->valuestring, "auto") != 0) {
+        return sc;
+    }
+    sc.mode = 1;
+    const cJSON *days = cJSON_GetObjectItem(sch, "days");
+    if (cJSON_IsArray(days)) {
+        int d = 0;
+        const cJSON *e = NULL;
+        cJSON_ArrayForEach(e, days) {
+            if (d > 6) {
+                break;
+            }
+            if (cJSON_IsTrue(e) || (cJSON_IsNumber(e) && e->valuedouble != 0)) {
+                sc.days |= (uint8_t)(1u << d);
+            }
+            d++;
+        }
+    }
+    sc.start_min = parse_hhmm(cJSON_GetObjectItem(sch, "start"));
+    sc.end_min   = parse_hhmm(cJSON_GetObjectItem(sch, "end"));
+    return sc;
+}
+
 /* Map a playlist entry's kind/codec/bitrate to the short subtitle tag. */
 static void make_tag(const cJSON *item, char *out, size_t cap)
 {
@@ -63,6 +112,11 @@ static bool apply_provision(const char *json)
     if (cJSON_IsString(name) && name->valuestring[0]) {
         settings_set_device_name(name->valuestring);
     }
+    /* Timezone for evaluating the per-preset schedules in local time. */
+    const cJSON *tz = cJSON_GetObjectItem(root, "timezone");
+    if (cJSON_IsString(tz) && tz->valuestring[0]) {
+        settings_set_timezone(tz->valuestring);
+    }
 
     /* Static backing store for the station_t pointers (this task only). */
     static station_t entries[STATION_MAX];
@@ -91,6 +145,7 @@ static bool apply_provision(const char *json)
         entries[n].tag     = tbuf[n];
         entries[n].url     = ubuf[n];
         entries[n].favicon = "";   /* installer payload carries no logo URL */
+        entries[n].sched   = parse_schedule(item);
         n++;
     }
     cJSON_Delete(root);

@@ -908,7 +908,9 @@ function buildProvisionPayload() {
       ? { mode: 'auto', days: s.schedule.days.map(b => b ? 1 : 0), start: s.schedule.start, end: s.schedule.end }
       : { mode: 'manual' },
   }));
-  return 'PROVISION:' + JSON.stringify({ provision_version: 1, device_name: name, playlist: pl }) + '\n';
+  let timezone = '';
+  try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (_) {}
+  return 'PROVISION:' + JSON.stringify({ provision_version: 1, device_name: name, timezone: timezone, playlist: pl }) + '\n';
 }
 async function sendProvisioning(port) {
   const statusEl = document.getElementById('install-status');

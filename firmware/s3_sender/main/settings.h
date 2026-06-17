@@ -31,6 +31,12 @@ void settings_set_device_name(const char *name);
 int  settings_get_output_mode(int def);
 void settings_set_output_mode(int mode);
 
+/* IANA timezone name (e.g. "America/Toronto") used to evaluate preset
+ * schedules in local time. Fills out (>= SETTINGS_STR_MAX), defaulting to
+ * a sensible value. */
+void settings_get_timezone(char *out);
+void settings_set_timezone(const char *iana);
+
 #ifdef __cplusplus
 }
 #endif

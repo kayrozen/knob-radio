@@ -151,6 +151,11 @@ All behind Kconfig and compiled in CI:
   configured via the captive portal (`portal.c`) or the browser installer's USB
   serial handoff (`provisioning_serial.c`: parses `PROVISION:{…}`, persists,
   reboots). Now-playing title relayed to the car.
+- **Auto-play schedules** — each preset can carry a schedule (days + time
+  window) from the installer; the firmware syncs the clock (`time_sync.c`, SNTP +
+  timezone) and, on Bluetooth connect or first time-sync, jumps to the preset
+  whose window is active now (`schedule.c`, a pure host-tested picker). So the
+  device starts on the right station for the moment — no touch needed.
 - **BT pairing + AVRCP** — the return UART carries COBS control frames
   (`link_tx.c`): the bridge reports status/scan results, accepts pair commands,
   and relays the car's steering-wheel buttons to the S3.

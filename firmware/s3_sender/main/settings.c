@@ -11,8 +11,10 @@
 #define KEY_PASS        "wifi_pass"
 #define KEY_NAME        "device_name"
 #define KEY_OUTMODE     "output_mode"
+#define KEY_TZ          "tz"
 
 #define DEFAULT_NAME    "Preset Radio"
+#define DEFAULT_TZ      "America/Toronto"
 
 static bool get_str(const char *key, char *out, size_t cap)
 {
@@ -81,4 +83,16 @@ void settings_set_output_mode(int mode)
         nvs_commit(h);
         nvs_close(h);
     }
+}
+
+void settings_get_timezone(char *out)
+{
+    if (!get_str(KEY_TZ, out, SETTINGS_STR_MAX)) {
+        strcpy(out, DEFAULT_TZ);
+    }
+}
+
+void settings_set_timezone(const char *iana)
+{
+    set_str(KEY_TZ, iana);
 }

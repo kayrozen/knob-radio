@@ -33,6 +33,8 @@
 #include "encoder.h"
 #include "wifi_sta.h"
 #include "adf_pipeline.h"
+#include "schedule.h"
+#include "time_sync.h"
 #if defined(CONFIG_PRESET_ENABLE_PORTAL)
 #include "portal.h"
 #endif
@@ -59,6 +61,30 @@ static void apply_station(int index)
     ui_set_station(index, st->name);
     album_art_load(st->favicon);     /* fetch + show the station logo */
 #endif
+}
+
+/* Auto-play scheduler: pick the preset whose schedule window is active right
+ * now (local time) and switch to it. Triggered when the clock first syncs and
+ * whenever Bluetooth (re)connects, so the device lands on the right preset on
+ * its own. No-op until the clock is set, or if no schedule matches. */
+static void scheduler_apply(void)
+{
+    int weekday, minute;
+    if (!time_now_local(&weekday, &minute)) {
+        return;
+    }
+    size_t n = station_count();
+    station_sched_t scheds[STATION_MAX];
+    for (size_t i = 0; i < n && i < STATION_MAX; i++) {
+        const station_t *s = station_get((int)i);
+        scheds[i] = s ? s->sched : (station_sched_t){ 0 };
+    }
+    int idx = schedule_pick(scheds, n, weekday, minute);
+    if (idx >= 0 && idx != station_current()) {
+        ESP_LOGI(TAG, "schedule active -> preset %d", idx);
+        station_set_current(idx);
+        apply_station(idx);
+    }
 }
 
 /* Encoder detent -> a crisp click (plan §6.2: hand is on the knob). */
@@ -96,15 +122,14 @@ static void on_avrcp(uint8_t cmd)
 /* Bluetooth connection state from the bridge -> UI overlay. */
 static void on_bt_status(uint8_t state)
 {
-#if defined(CONFIG_PRESET_ENABLE_UI)
     if (state == PCM_LINK_BT_CONNECTED) {
+        scheduler_apply();   /* land on the scheduled preset on connect */
+#if defined(CONFIG_PRESET_ENABLE_UI)
         ui_show_status(UI_STATUS_NONE, NULL);
     } else if (state == PCM_LINK_BT_CONNECTING) {
         ui_show_status(UI_STATUS_PAIRING, NULL);
-    }
-#else
-    (void)state;
 #endif
+    }
 }
 
 static void phase_e_start(void)
@@ -145,6 +170,9 @@ static void phase_e_start(void)
     ui_show_status(UI_STATUS_NONE, NULL);   /* reveal the preset screen */
     album_art_start();
 #endif
+
+    /* Wall-clock time -> when it first syncs, jump to the scheduled preset. */
+    time_sync_start(scheduler_apply);
 
     const station_t *st = station_current_station();
     adf_pipeline_start(st->url);
