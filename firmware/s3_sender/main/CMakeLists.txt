@@ -16,8 +16,17 @@ set(reqs pcm_link driver nvs_flash esp_timer json)
 
 # Phase 10: captive portal sources. Its REQUIRES (esp_http_server etc.) live in
 # the ADF_PATH block below, because REQUIRES can't be Kconfig-gated (see note).
+# The designed WiFi/Bluetooth pages + shared CSS/JS are embedded in the image.
+set(embed)
 if(CONFIG_PRESET_ENABLE_PORTAL)
     list(APPEND srcs "portal.c")
+    list(APPEND embed
+        "../../../web/portal/wifi.html"
+        "../../../web/portal/bluetooth.html"
+        "../../../web/portal/portal.js"
+        "../../../web/assets/preset.css"
+        "../../../web/assets/portal.css"
+        "../../../web/assets/preset.js")
 endif()
 
 # Phase 10: USB serial provisioning from the browser installer.
@@ -79,4 +88,5 @@ endif()
 
 list(APPEND reqs esp_lcd esp_lvgl_port lvgl esp_lcd_st77916 esp_lcd_touch_cst816s)
 
-idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES ${reqs})
+idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES ${reqs}
+                       EMBED_TXTFILES ${embed})

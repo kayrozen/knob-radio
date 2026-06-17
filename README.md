@@ -168,6 +168,11 @@ All behind Kconfig and compiled in CI:
 - **BT pairing + AVRCP** — the return UART carries COBS control frames
   (`link_tx.c`): the bridge reports status/scan results, accepts pair commands,
   and relays the car's steering-wheel buttons to the S3.
+- **Captive portal (setup)** — `portal.c` serves the designed two-step flow from
+  embedded pages (`web/portal/`): pick a real WiFi network (live scan, save +
+  join) then pick a Bluetooth speaker (scan/pair orchestrated over the control
+  plane); finishing reboots into normal operation. A `<name>.local` preset
+  editor over WiFi is the next step.
 
 ### Roadmap
 

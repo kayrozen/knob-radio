@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr" data-lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Préset — Wifi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="preset.css" />
+<link rel="stylesheet" href="portal.css" />
+</head>
+<body class="portal-page" data-portal="wifi">
+
+<div class="portal-shell" data-screen-label="Portail WiFi">
+
+  <!-- ============================ TOP BAR ============================ -->
+  <div class="pp-bar">
+    <span class="pp-brand">
+      <span class="dot"></span>
+      <span>Préset</span>
+    </span>
+    <div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" data-setlang="fr" aria-pressed="true">FR</button>
+      <button type="button" data-setlang="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
+
+  <!-- connection status: phone is on the Préset hotspot -->
+  <div class="pp-status">
+    <span class="ld" aria-hidden="true"></span>
+    <span data-fr>Connecté au point d'accès</span>
+    <span data-en>Connected to hotspot</span>
+    <span class="sep">·</span>
+    <span class="addr">preset.local</span>
+  </div>
+
+  <!-- ============================== BODY ============================== -->
+  <div class="pp-body" data-comment-anchor="8caabb3503-div">
+    <div class="pp-kicker">
+      <span data-fr>Phase 1 / 2 · Réseau</span>
+      <span data-en>Phase 1 / 2 · Network</span>
+    </div>
+    <h1 data-fr>Choisis ton hotspot.</h1>
+    <h1 data-en>Choose your hotspot.</h1>
+    <p class="pp-lede" data-fr>En général c'est le partage de connexion de ton téléphone&nbsp;: allume-le pour qu'il apparaisse dans la liste. Préset s'y reconnectera à chaque démarrage pour récupérer tes stations.</p>
+    <p class="pp-lede" data-en>Usually your phone's hotspot — turn it on so it shows up in the list. Préset will rejoin it on every start to pull your stations.</p>
+
+    <!-- scan controls -->
+    <div class="pp-scan">
+      <button type="button" class="pp-scan-btn" data-scan aria-busy="false">
+        <span class="ico" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 8a6 6 0 1 1-1.8-4.3"/><path d="M14 2.4V6h-3.6"/></svg>
+        </span>
+        <span data-fr>Rescanner</span>
+        <span data-en>Rescan</span>
+      </button>
+      <span class="pp-scan-meta" data-scan-meta>
+        <span class="pulse"></span>
+        <span data-fr>Recherche…</span>
+        <span data-en>Searching…</span>
+      </span>
+    </div>
+
+    <!-- result list (populated by portal.js) -->
+    <div class="pp-list" data-list role="radiogroup" aria-label="Réseaux wifi"></div>
+
+    <!-- password (revealed for locked networks) -->
+    <div class="pp-pass">
+      <label data-fr>Mot de passe</label>
+      <label data-en>Password</label>
+      <div class="wrap-input">
+        <input type="password" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+               placeholder="••••••••" aria-label="Mot de passe wifi" />
+        <button type="button" class="pp-eye" aria-label="Afficher le mot de passe">
+          <span class="on" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 9S4.5 3.5 9 3.5 16.5 9 16.5 9 13.5 14.5 9 14.5 1.5 9 1.5 9Z"/><circle cx="9" cy="9" r="2.1"/></svg></span>
+          <span class="off" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2.5 2.5l13 13"/><path d="M7 4a7.6 7.6 0 0 1 2-.5C13.5 3.5 16.5 9 16.5 9a13 13 0 0 1-2.2 2.8M11 11.6a2.1 2.1 0 0 1-2.8-2.8M4.2 5.2A13 13 0 0 0 1.5 9S4.5 14.5 9 14.5a7.4 7.4 0 0 0 1.6-.2"/></svg></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- submit -->
+    <div class="pp-actions">
+      <button type="button" class="pp-submit" data-submit disabled aria-busy="false">
+        <span class="ico" aria-hidden="true">
+          <svg class="idle" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg>
+        </span>
+        <span data-fr>Enregistrer et continuer</span>
+        <span data-en>Save and continue</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================== FOOT ============================== -->
+  <div class="pp-foot">
+    <div class="pp-hint">
+      <span class="ico" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.2v4" stroke-linecap="round"/><circle cx="8" cy="4.8" r="0.5" fill="currentColor" stroke="none"/></svg>
+      </span>
+      <span>
+        <span data-fr>Ton réseau n'apparaît pas&nbsp;? Rapproche-toi de la borne, puis <b>Rescanner</b>. Préset ne capte pas le 5 GHz à longue portée.</span>
+        <span data-en>Network missing? Move closer to the router, then <b>Rescan</b>. Préset can't reach 5 GHz at long range.</span>
+      </span>
+    </div>
+    <div class="pp-hint">
+      <span class="ico" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3.5" width="11" height="9" rx="1.4"/><path d="M2.5 6h11" /></svg>
+      </span>
+      <span>
+        <span data-fr>Le mot de passe est envoyé directement au Préset et n'est <b>jamais</b> transmis ailleurs.</span>
+        <span data-en>The password goes straight to your Préset and is <b>never</b> sent anywhere else.</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- ====================== SUCCESS (after submit) ====================== -->
+  <div class="pp-done">
+    <div class="led-ring" aria-hidden="true"><span class="core"></span></div>
+    <div class="eyebrow-m">
+      <span data-fr>Wifi enregistré</span>
+      <span data-en>Wifi saved</span>
+    </div>
+    <h2 data-fr>Connecté à <span data-picked>ton réseau</span>.</h2>
+    <h2 data-en>Connected to <span data-picked>your network</span>.</h2>
+    <p data-fr>Préset est en ligne. Passe à la phase 2 pour relier ton enceinte en Bluetooth.</p>
+    <p data-en>Préset is online. On to phase 2 — pair your speaker over Bluetooth.</p>
+
+    <a class="next" href="/bluetooth">
+      <span data-fr>Continuer vers le Bluetooth</span>
+      <span data-en>Continue to Bluetooth</span>
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9M8.5 4l4 4-4 4"/></svg>
+    </a>
+    <a class="restart" href="#" data-restart>
+      <span data-fr>Choisir un autre réseau</span>
+      <span data-en>Choose another network</span>
+    </a>
+  </div>
+
+</div>
+
+<script src="preset.js"></script>
+<script src="portal.js"></script>
+</body>
+</html>

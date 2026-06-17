@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr" data-lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Préset — Bluetooth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="preset.css" />
+<link rel="stylesheet" href="portal.css" />
+</head>
+<body class="portal-page" data-portal="bt">
+
+<div class="portal-shell" data-screen-label="Portail Bluetooth">
+
+  <!-- ============================ TOP BAR ============================ -->
+  <div class="pp-bar">
+    <span class="pp-brand">
+      <span class="dot"></span>
+      <span>Préset</span>
+    </span>
+    <div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" data-setlang="fr" aria-pressed="true">FR</button>
+      <button type="button" data-setlang="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
+
+  <!-- status: wifi is now linked, working on the speaker -->
+  <div class="pp-status">
+    <span class="ld fast" aria-hidden="true"></span>
+    <span data-fr data-comment-anchor="07874a9f8e-span">Wifi relié</span>
+    <span data-en>Wifi linked</span>
+    <span class="addr">Maison_5G</span>
+    <span class="sep">·</span>
+    <span class="addr" data-fr>appairage de l'enceinte</span>
+    <span class="addr" data-en>pairing speaker</span>
+  </div>
+
+  <!-- ============================== BODY ============================== -->
+  <div class="pp-body">
+    <div class="pp-kicker">
+      <span data-fr>Phase 2 / 2 · Enceinte</span>
+      <span data-en>Phase 2 / 2 · Speaker</span>
+    </div>
+    <h1 data-fr>Relie ton enceinte.</h1>
+    <h1 data-en>Pair your speaker.</h1>
+    <p class="pp-lede" data-fr>Mets ton enceinte ou l'auto en mode appairage, puis choisis-la dans la liste. Préset s'y reconnectera tout seul ensuite.</p>
+    <p class="pp-lede" data-en>Put your speaker or car in pairing mode, then pick it below. Préset will reconnect to it on its own afterward.</p>
+
+    <!-- scan controls -->
+    <div class="pp-scan">
+      <button type="button" class="pp-scan-btn" data-scan aria-busy="false">
+        <span class="ico" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 8a6 6 0 1 1-1.8-4.3"/><path d="M14 2.4V6h-3.6"/></svg>
+        </span>
+        <span data-fr>Rescanner</span>
+        <span data-en>Rescan</span>
+      </button>
+      <span class="pp-scan-meta" data-scan-meta>
+        <span class="pulse"></span>
+        <span data-fr>Scan…</span>
+        <span data-en>Scanning…</span>
+      </span>
+    </div>
+
+    <!-- result list (populated by portal.js) -->
+    <div class="pp-list" data-list role="radiogroup" aria-label="Enceintes Bluetooth"></div>
+
+    <!-- submit -->
+    <div class="pp-actions">
+      <button type="button" class="pp-submit" data-submit disabled aria-busy="false">
+        <span class="ico" aria-hidden="true">
+          <svg width="15" height="16" viewBox="0 0 12 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5 9 11l-3 2.5V2.5L9 5 3 11.5"/></svg>
+        </span>
+        <span data-fr>Appairer et terminer</span>
+        <span data-en>Pair and finish</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================== FOOT ============================== -->
+  <div class="pp-foot">
+    <div class="pp-hint">
+      <span class="ico" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.2v4" stroke-linecap="round"/><circle cx="8" cy="4.8" r="0.5" fill="currentColor" stroke="none"/></svg>
+      </span>
+      <span>
+        <span data-fr>Ton enceinte n'apparaît pas&nbsp;? Il est possible que tu doives la placer en <b>mode appairage</b>, puis <b>Rescanner</b>.</span>
+        <span data-en>Speaker missing? You may need to put it in <b>pairing mode</b>, then <b>Rescan</b>.</span>
+      </span>
+    </div>
+
+    <!-- link to change presets on the installation page -->
+    <a class="pp-ios" href="/done" data-comment-anchor="65b953e158-a">
+      <span class="txt">
+        <span class="t" data-fr>Changer mes presets</span>
+        <span class="t" data-en>Change my presets</span>
+      </span>
+      <span class="arr" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h9M8.5 4l4 4-4 4"/></svg>
+      </span>
+    </a>
+  </div>
+
+  <!-- ====================== SUCCESS (after submit) ====================== -->
+  <div class="pp-done streaming">
+    <div class="led-ring" aria-hidden="true"><span class="core"></span></div>
+    <div class="eyebrow-m">
+      <span data-fr>Tout est relié</span>
+      <span data-en>All linked</span>
+    </div>
+    <h2 data-fr>Appairé à <span data-picked>ton enceinte</span>.</h2>
+    <h2 data-en>Paired to <span data-picked>your speaker</span>.</h2>
+    <p data-fr>Wifi et Bluetooth sont en place. Démarre l'auto et tes stations jouent toutes seules.</p>
+    <p data-en>Wifi and Bluetooth are set. Start the car and your stations play on their own.</p>
+
+    <a class="next" href="/done">
+      <span data-fr>Gérer mes presets</span>
+      <span data-en>Manage my presets</span>
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9M8.5 4l4 4-4 4"/></svg>
+    </a>
+    <a class="restart" href="#" data-restart>
+      <span data-fr>Appairer une autre enceinte</span>
+      <span data-en>Pair another speaker</span>
+    </a>
+  </div>
+
+</div>
+
+<script src="preset.js"></script>
+<script src="portal.js"></script>
+</body>
+</html>
