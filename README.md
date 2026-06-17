@@ -2,7 +2,7 @@
 
 **You start the car. It plays. Your phone stays out of sight.**
 
-![Préset on a car dashboard playing a station](web/assets/hero.jpg)
+![Préset on a car dashboard playing a station](web/assets/hero.png)
 
 Préset is a small knob for your dashboard that turns your favourite internet
 radio stations and podcasts into old-school car-radio presets. Pick five before
