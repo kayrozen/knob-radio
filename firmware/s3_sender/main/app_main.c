@@ -9,6 +9,8 @@
  * and (optionally) the LVGL UI shows it. Audio/UART live on core 1, UI/input on
  * core 0, so the UI cannot starve the audio.
  */
+#include <string.h>
+
 #include "esp_log.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
