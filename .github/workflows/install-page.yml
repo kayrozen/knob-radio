@@ -56,13 +56,14 @@ jobs:
               printf 'CONFIG_PRESET_ENABLE_UI=y\n'
               printf 'CONFIG_PRESET_ENABLE_HAPTIC=y\n'
               printf 'CONFIG_PRESET_ENABLE_PORTAL=y\n'
+              printf 'CONFIG_PRESET_ENABLE_PROVISION=y\n'
             } > sdkconfig.defaults.phase_e
             idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.phase_e" \
                    set-target esp32s3 build
             idf.py merge-bin -o "$DIST/s3-merged.bin" )
 
-          # --- Installer page + ESP Web Tools manifests ---
-          cp web/index.html "$DIST/index.html"
+          # --- Installer page (HTML + assets) + ESP Web Tools manifests ---
+          cp -r web/. "$DIST/"
           cat > "$DIST/manifest-u4wdh.json" <<EOF
           { "name": "Preset Radio bridge (U4WDH)", "version": "$VER",
             "new_install_prompt_erase": true,

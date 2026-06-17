@@ -61,6 +61,14 @@ config PRESET_ENABLE_PORTAL
         to configure Wi-Fi, device name, output mode and the station presets
         (plan §3). With stored credentials the device connects as normal.
 
+config PRESET_ENABLE_PROVISION
+    bool "Enable USB serial provisioning (browser installer)"
+    default n
+    help
+        Listen on the USB-Serial-JTAG console for a PROVISION line from the web
+        installer (device name + station presets), persist it and reboot
+        (plan §3.4). Requires the USB-Serial-JTAG console.
+
 config PRESET_ENABLE_UI
     bool "Enable LVGL UI on the round display (JC3636W518V2)"
     default n

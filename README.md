@@ -71,10 +71,16 @@ make -C test/host test
 
 The CI pipeline's delivery stage (`.github/workflows/install-page.yml`) builds
 flashable images for both chips, wraps them in ESP Web Tools manifests, and
-publishes a web installer (`web/index.html`) — uploaded as an artifact on every
-run and deployed to GitHub Pages on the default branch / tags. The board has two
-USB-C ports (one per chip); the page flashes each from its own port. After
-flashing, the main chip starts the Wi-Fi setup hotspot (the captive portal).
+publishes a guided web installer (`web/`) — uploaded as an artifact on every run
+and deployed to GitHub Pages on the default branch / tags. The installer walks
+through naming the device and picking five station presets (live-radio search
+via radio-browser, podcasts via the Apple directory, per-preset schedules), then
+flashes and **provisions over USB serial**: after the flash it sends a
+`PROVISION:{…}` line (115200 baud) with the device name + presets, which the
+firmware's `provisioning_serial.c` parses, persists and acks (`OK`/`ERR:`)
+before rebooting. The board has two USB-C ports (one per chip); the main chip is
+flashed + provisioned, the Bluetooth bridge is flashed once from its own port.
+Wi-Fi is then set on first boot via the captive portal.
 
 The pipeline has two stages: **ci.yml** (fast host unit tests, no hardware) and
 **install-page.yml** (builds the real firmware for both chips — including the

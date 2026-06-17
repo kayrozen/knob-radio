@@ -18,6 +18,12 @@ if(CONFIG_PRESET_ENABLE_PORTAL)
     list(APPEND srcs "portal.c")
 endif()
 
+# Phase 10: USB serial provisioning from the browser installer.
+# (usb_serial_jtag comes from the base `driver` req; no extra REQUIRES needed.)
+if(CONFIG_PRESET_ENABLE_PROVISION)
+    list(APPEND srcs "provisioning_serial.c")
+endif()
+
 # IMPORTANT: SRCS may depend on Kconfig, but REQUIRES may NOT — component
 # requirements are expanded BEFORE sdkconfig is loaded, so a CONFIG_* test here
 # is always false during early dependency expansion and the required components'

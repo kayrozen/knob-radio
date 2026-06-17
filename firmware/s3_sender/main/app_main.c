@@ -20,6 +20,10 @@
 #include "pcm_link_proto.h"
 #include "settings.h"
 
+#if defined(CONFIG_PRESET_ENABLE_PROVISION)
+#include "provisioning_serial.h"
+#endif
+
 #if defined(CONFIG_PRESET_ENABLE_HAPTIC)
 #include "haptic.h"
 #endif
@@ -162,6 +166,11 @@ void app_main(void)
     }
 
     ESP_LOGI(TAG, "hello S3 — PCM -> COBS/UART forward link");
+
+#if defined(CONFIG_PRESET_ENABLE_PROVISION)
+    /* Listen for the browser installer's PROVISION line before anything else. */
+    provisioning_serial_start();
+#endif
 
     pcm_source_init();
 

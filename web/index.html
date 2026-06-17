@@ -1,61 +1,227 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr" data-lang="fr" data-theme="dark">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Preset Radio — Installer</title>
-  <!-- ESP Web Tools: flash the board from the browser over Web Serial. -->
-  <script type="module"
-          src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
-  <style>
-    :root { color-scheme: dark; }
-    body { font-family: system-ui, sans-serif; background:#111; color:#eee;
-           max-width:640px; margin:0 auto; padding:24px; line-height:1.5; }
-    h1 { color:#E5734A; }
-    h2 { margin-top:32px; }
-    .card { background:#1b1b1b; border:1px solid #333; border-radius:12px;
-            padding:20px; margin:16px 0; }
-    .step { color:#aaa; font-size:0.9em; }
-    a { color:#E5734A; }
-    code { background:#000; padding:1px 5px; border-radius:4px; }
-    esp-web-install-button { --esp-tools-button-color:#fff;
-                             --esp-tools-button-text-color:#111; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Préset — Installation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="assets/preset.css" />
+<link rel="stylesheet" href="assets/install.css" />
+<link rel="stylesheet" href="assets/led-states.css" />
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 </head>
 <body>
-  <h1>Preset Radio installer</h1>
-  <p>Flash the dual-chip board straight from this page over USB — no toolchain
-     needed. Use a Chromium-based browser (Chrome/Edge) on desktop.</p>
 
-  <p class="step"><strong>The board has two USB-C ports</strong>, one per chip.
-     Flash each chip from <em>its own</em> port: connect the port, click its
-     button, pick the serial device, and let it install. Do the bridge first.</p>
+<!-- ============================ HEADER ============================ -->
+<header class="site-header">
+  <div class="wrap" style="max-width:1080px">
+    <a class="brand" href="#top" aria-label="Préset">
+      <span class="dot"></span>
+      <span>Préset</span>
+    </a>
+    <div class="header-right">
+      <span class="header-tag" data-fr>Installation</span>
+      <span class="header-tag" data-en>Install</span>
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" data-setlang="fr" aria-pressed="true">FR</button>
+        <button type="button" data-setlang="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+  </div>
+</header>
 
-  <div class="card">
-    <h2>1 · Bridge (ESP32-U4WDH)</h2>
-    <p class="step">The Bluetooth/A2DP half. Connect the <em>bridge</em> USB-C
-       port.</p>
-    <esp-web-install-button manifest="./manifest-u4wdh.json"></esp-web-install-button>
+<main class="install-main" id="top">
+
+  <!-- ----------------------------- INTRO ----------------------------- -->
+  <div class="install-intro">
+    <div class="eyebrow"><span class="num">●</span><span data-fr>Installation</span><span data-en>Install</span></div>
+    <h1 data-fr>Branche. Choisis. C'est parti.</h1>
+    <h1 data-en>Plug in. Pick. You're set.</h1>
+    <p class="sub" data-fr>Trois étapes, une seule fois. <span class="accent">Après, tu n'y reviens plus jamais.</span></p>
+    <p class="sub" data-en>Three steps, once. <span class="accent">After that, you never come back.</span></p>
   </div>
 
-  <div class="card">
-    <h2>2 · Main (ESP32-S3)</h2>
-    <p class="step">WiFi, codecs, display and UI. Connect the <em>main</em>
-       USB-C port.</p>
-    <esp-web-install-button manifest="./manifest-s3.json"></esp-web-install-button>
+  <!-- Step 1: Device Name -->
+  <div class="card" id="step1-card">
+    <div class="step-label"><span data-fr>Étape 1 sur 3</span><span data-en>Step 1 of 3</span></div>
+    <h2 data-fr>Nomme ton appareil</h2>
+    <h2 data-en>Name your device</h2>
+    <label for="device-name" data-fr>Nom de l'appareil</label>
+    <label for="device-name" data-en>Device name</label>
+    <input type="text" id="device-name" placeholder="preset" autocomplete="off" spellcheck="false" data-comment-anchor="71e8f001a5-input" />
+    <div class="hint" id="name-hint" data-fr>Lettres minuscules, chiffres et traits d'union. 2 à 24 caractères. Doit commencer et finir par une lettre ou un chiffre.</div>
+    <div class="hint" id="name-hint-en" data-en>Lowercase letters, numbers and hyphens. 2–24 characters. Must start and end with a letter or number.</div>
   </div>
 
-  <h2>After flashing</h2>
-  <p class="step">On first boot the main chip starts a Wi-Fi setup hotspot
-     (named <code>Preset Radio</code>). Join it, and the captive portal opens to
-     configure Wi-Fi, the output mode and your station presets.</p>
+  <!-- Step 2: Playlist -->
+  <div class="card" id="step2-card">
+    <div class="step-label"><span data-fr>Étape 2 sur 3</span><span data-en>Step 2 of 3</span></div>
+    <h2>
+      <span data-fr>Tes cinq présets</span><span data-en>Your five presets</span>
+      <span class="counter" id="pl-counter">0 / 5</span>
+    </h2>
+    <p class="step-sub">
+      <span data-fr>Cherche une radio en direct ou colle un podcast. Donne-lui un horaire&nbsp;: ton Préset démarre tout seul sur le bon préset au bon moment.</span>
+      <span data-en>Find a live station or paste a podcast. Give it a schedule and your Préset starts on the right preset, at the right time, on its own.</span>
+    </p>
 
-  <p class="step">Build: <code id="ver">dev</code> ·
-     <a href="https://github.com/kayrozen/knob-radio">source</a></p>
-  <script>
-    fetch('./manifest-s3.json').then(r => r.json())
-      .then(m => { document.getElementById('ver').textContent = m.version; })
-      .catch(() => {});
-  </script>
+    <ul id="station-list"></ul>
+    <div id="pl-empty" class="pl-empty">
+      <span data-fr>Aucun préset pour l'instant. Cherche une station ci-dessous pour commencer.</span>
+      <span data-en>No presets yet. Search for a station below to start.</span>
+    </div>
+
+    <div class="search-mode kind-seg" id="search-mode" role="group" aria-label="Type de recherche">
+      <input type="radio" name="search-mode" id="sm-radio" value="radio" checked />
+      <label for="sm-radio"><span data-fr>Radio en direct</span><span data-en>Live radio</span></label>
+      <input type="radio" name="search-mode" id="sm-pod" value="podcast" />
+      <label for="sm-pod"><span data-fr>Podcast</span><span data-en>Podcast</span></label>
+    </div>
+
+    <div id="search-wrapper">
+      <label id="search-label" for="search-input"></label>
+      <input type="text" id="search-input" placeholder="" autocomplete="off" />
+      <div id="search-results" hidden></div>
+    </div>
+
+    <details id="custom-details">
+      <summary>
+        <span>&#10010;</span>
+        <span data-fr>Ajouter une URL — flux ou podcast</span><span data-en>Add a URL — stream or podcast</span>
+      </summary>
+      <div class="details-inner">
+        <div>
+          <label data-fr>Type de source</label>
+          <label data-en>Source type</label>
+          <div class="kind-seg" id="custom-kind" role="group" aria-label="Type de source">
+            <input type="radio" name="custom-kind" id="ck-live" value="live" checked />
+            <label for="ck-live"><span data-fr>Flux en direct</span><span data-en>Live stream</span></label>
+            <input type="radio" name="custom-kind" id="ck-pod" value="podcast" />
+            <label for="ck-pod"><span data-fr>Podcast RSS</span><span data-en>Podcast RSS</span></label>
+          </div>
+        </div>
+        <div>
+          <label for="custom-name" data-fr>Nom</label>
+          <label for="custom-name" data-en>Name</label>
+          <input type="text" id="custom-name" placeholder="Ma station" />
+        </div>
+        <div>
+          <label for="custom-url" data-fr>URL (http:// ou https://)</label>
+          <label for="custom-url" data-en>URL (http:// or https://)</label>
+          <input type="url" id="custom-url" placeholder="http://stream.example.com/radio" />
+          <div class="hint" id="custom-url-hint"></div>
+        </div>
+        <button class="btn" id="custom-add-btn" onclick="addCustomStation()"><span data-fr>Ajouter</span><span data-en>Add</span></button>
+      </div>
+    </details>
+
+    <div id="geo-status" class="hint" style="margin-top:14px"></div>
+  </div>
+
+  <!-- Step 3: Install -->
+  <div class="card" id="install-card">
+    <div class="step-label"><span data-fr>Étape 3 sur 3</span><span data-en>Step 3 of 3</span></div>
+    <h2 data-fr>Brancher et installer</h2>
+    <h2 data-en>Connect &amp; Install</h2>
+    <p data-fr data-comment-anchor="0d98ba830c-p">Branche ton Préset en USB, puis clique le bouton. Une fois le flash terminé, tes présets et le nom de l'appareil sont envoyés automatiquement.</p>
+    <p data-en>Connect your Préset via USB, then click the button below. After flashing completes, your presets and device name are sent automatically.</p>
+    <esp-web-install-button id="install-btn" manifest="manifest-s3.json">
+      <button slot="activate" class="btn">
+        <span class="led"></span>
+        <span data-fr>Brancher et flasher</span><span data-en>Connect &amp; Flash</span>
+      </button>
+    </esp-web-install-button>
+    <div class="status-msg" id="install-status"></div>
+    <p class="after-flash">
+      <span data-fr data-comment-anchor="dd2fc6f35a-span">Tes présets et leurs horaires sont envoyés à l'appareil pendant le flash. Pour les changer plus tard : rebranche en USB, ou fais-le à distance par wifi.</span>
+      <span data-en>Your presets <strong>and their schedules</strong> are sent to the device during flashing. To change them later: plug back in via USB, or do it remotely over wifi (OTA), no unplugging needed.</span>
+    </p>
+  </div>
+
+  <!-- Bridge chip — one-time, separate USB-C port -->
+  <div class="card" id="bridge-card">
+    <div class="step-label"><span data-fr>Une seule fois · puce Bluetooth</span><span data-en>One-time · Bluetooth chip</span></div>
+    <h2 data-fr>Flasher la puce-pont</h2>
+    <h2 data-en>Flash the bridge chip</h2>
+    <p data-fr>Ton Préset a une seconde puce qui parle au Bluetooth de la voiture, sur <strong>son propre port USB-C</strong>. Branche ce port-là, puis flashe — une seule fois, sans présets à envoyer.</p>
+    <p data-en>Your Préset has a second chip that talks to the car's Bluetooth, on <strong>its own USB-C port</strong>. Connect that port, then flash — once, with no presets to send.</p>
+    <esp-web-install-button id="bridge-btn" manifest="manifest-u4wdh.json">
+      <button slot="activate" class="btn btn-secondary">
+        <span class="led"></span>
+        <span data-fr>Flasher le pont</span><span data-en>Flash the bridge</span>
+      </button>
+    </esp-web-install-button>
+  </div>
+
+  <!-- LED states reference -->
+  <section class="led-legend compact">
+    <div class="wrap" data-comment-anchor="4615a92907-div">
+      <div class="eyebrow"><span class="num">●</span><span data-fr>La lumière</span><span data-en>The light</span></div>
+      <div class="led-head">
+        <h2 data-fr>La LED te dit où c'en est.</h2>
+        <h2 data-en>The LED tells you where it's at.</h2>
+        <p data-fr>Une seule lumière sur le boîtier. Pendant le flash, l'installation et après — sa cadence t'indique ce que fait Préset, sans écran.</p>
+        <p data-en>A single light on the device. During flashing, setup and after — its rhythm tells you what Préset is doing, with no screen.</p>
+      </div>
+
+      <div class="led-grid">
+        <div class="led-state">
+          <span class="led-bulb"><span class="led-dot" data-pat="fast"></span></span>
+          <span class="led-text">
+            <span class="led-name" data-fr>Phase 1 — Portail wifi (point d'accès)</span><span class="led-name" data-en>Phase 1 — WiFi AP portal</span>
+            <span class="led-pat" data-fr>Clignotement rapide · 200 ms</span><span class="led-pat" data-en>Fast blink · 200 ms</span>
+          </span>
+        </div>
+        <div class="led-state">
+          <span class="led-bulb"><span class="led-dot" data-pat="ota"></span></span>
+          <span class="led-text">
+            <span class="led-name" data-fr>Mise à jour (OTA)</span><span class="led-name" data-en>OTA update</span>
+            <span class="led-pat" data-fr>Double flash rapide</span><span class="led-pat" data-en>Fast double-flash</span>
+          </span>
+        </div>
+        <div class="led-state is-error">
+          <span class="led-bulb"><span class="led-dot" data-pat="sos"></span></span>
+          <span class="led-text">
+            <span class="led-name" data-fr>Erreur critique / redémarrages</span><span class="led-name" data-en>Boot loop / critical error</span>
+            <span class="led-pat" data-fr>SOS · ··· ——— ···</span><span class="led-pat" data-en>SOS · ··· ——— ···</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="led-foot">
+        <span class="key"><span class="swatch"></span><span data-fr>Fonctionnement normal</span><span data-en>Normal operation</span></span>
+        <span class="key"><span class="swatch warn"></span><span data-fr>Problème — voir l'aide</span><span data-en>Problem — see help</span></span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============================ FOOTER ============================ -->
+<footer class="site-footer">
+  <div class="wrap" style="max-width:1080px">
+    <div class="footer-grid">
+      <div class="footer-col" style="max-width:34ch">
+        <span class="h" data-fr>Besoin d'aide?</span><span class="h" data-en>Need help?</span>
+        <span style="color:var(--fg-2);font-size:15.5px;line-height:1.55" data-fr data-comment-anchor="86244c2fc5-span">Le tout premier flash se fait dans Chrome ou Edge, sur un ordinateur (Windows, Mac ou Linux) — le navigateur a besoin du port USB. Après ce premier coup, les mises à jour passent par wifi (OTA), depuis n'importe quel appareil, même ton iPhone.</span>
+        <span style="color:var(--fg-2);font-size:15.5px;line-height:1.55" data-en>The very first flash runs in Chrome or Edge, on a computer (Windows, Mac or Linux) — the browser needs USB access. After that first time, updates happen over wifi (OTA), from any device, even your iPhone.</span>
+        <a href="mailto:salut@preset.stream" style="margin-top:6px"><span data-fr>Nous écrire →</span><span data-en>Contact us →</span></a>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <span class="h" data-fr>Préset</span><span class="h" data-en>Préset</span>
+          <a href="#top"><span data-fr>↑ Haut de page</span><span data-en>↑ Back to top</span></a>
+          <a href="https://github.com/kayrozen/knob-radio">GitHub →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ============================ SCRIPTS ============================ -->
+<script src="assets/preset.js"></script>
+<script src="assets/install.js"></script>
+
 </body>
 </html>
