@@ -150,6 +150,13 @@ validated prototype, behind Kconfig and compiled in CI:
   or **analog** (`dac_control.c`: S3 I2S → PCM5100, CH445P source switch). The
   DAC's XSMT mute lives on the U4WDH, so analog mode un-mutes it over the
   control plane (`dac_mute.c` + `PCM_LINK_CTRL_DAC_MUTE`).
+- **Playlist + metadata** — the station list is an NVS-backed playlist with a
+  remembered index (`station.c`); a station change relays the now-playing title
+  to the U4WDH over the control plane (`PCM_LINK_CTRL_METADATA`).
+- **UI screens** — preset screen, a settings screen (brightness→NVS, output
+  mode, info) and transient boot/Wi-Fi/pairing/error overlays (`ui.c`).
+- **Album art** — `album_art.c` downloads the station favicon over HTTPS and
+  LVGL decodes the JPEG into the cover tile; works in BT and analog modes.
 
 ## What this prototype does NOT do (yet)
 

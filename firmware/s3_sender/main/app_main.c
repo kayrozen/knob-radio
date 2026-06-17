@@ -28,6 +28,7 @@
 #include "adf_pipeline.h"
 #if defined(CONFIG_PRESET_ENABLE_UI)
 #include "ui.h"
+#include "album_art.h"
 #endif
 #endif
 
@@ -46,6 +47,7 @@ static void apply_station(int index)
     audio_output_send_metadata(st->name);  /* BT: relay to the car via AVRCP */
 #if defined(CONFIG_PRESET_ENABLE_UI)
     ui_set_station(index, st->name);
+    album_art_load(st->favicon);     /* fetch + show the station logo */
 #endif
 }
 
@@ -85,10 +87,14 @@ static void phase_e_start(void)
     }
 #if defined(CONFIG_PRESET_ENABLE_UI)
     ui_show_status(UI_STATUS_NONE, NULL);   /* reveal the preset screen */
+    album_art_start();
 #endif
 
     const station_t *st = station_current_station();
     adf_pipeline_start(st->url);
+#if defined(CONFIG_PRESET_ENABLE_UI)
+    album_art_load(st->favicon);            /* logo for the initial station */
+#endif
 
     encoder_start(CONFIG_PRESET_ENC_GPIO_A, CONFIG_PRESET_ENC_GPIO_B,
                   on_encoder);        /* core 0 */

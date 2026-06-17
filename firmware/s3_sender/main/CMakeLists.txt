@@ -43,7 +43,9 @@ set(need_i2c_bus OFF)
 if(CONFIG_PRESET_ENABLE_UI)
     # display_st77916: panel bring-up + PWM backlight, used by ui.c.
     # touch_cst816: CST816S capacitive touch -> LVGL indev.
-    list(APPEND srcs "ui.c" "display_st77916.c" "touch_cst816.c")
+    # album_art: fetch the station favicon -> LVGL JPEG decode -> cover tile.
+    list(APPEND srcs "ui.c" "display_st77916.c" "touch_cst816.c" "album_art.c")
+    list(APPEND reqs esp_http_client esp-tls)
     set(need_i2c_bus ON)
 endif()
 

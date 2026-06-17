@@ -28,6 +28,13 @@ CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 CONFIG_LV_FONT_MONTSERRAT_12=y
 CONFIG_LV_FONT_MONTSERRAT_20=y
 
+# --- LVGL image decoder for album art (Phase 9) ---
+# Decodes the downloaded station-logo JPEG for the cover tile (album_art.c).
+CONFIG_LV_USE_SJPG=y
+
+# --- TLS cert bundle (Phase 9: HTTPS favicon download) ---
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+
 # --- FreeRTOS ---
 # ESP-ADF's audio_pipeline (Phase E) still uses legacy FreeRTOS names
 # (xSemaphoreHandle, portTICK_RATE_MS) that IDF v5.x only exposes with the

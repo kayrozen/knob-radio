@@ -53,6 +53,8 @@ static lv_obj_t *s_overlay_text;
 static lv_obj_t *s_lbl_station;
 static lv_obj_t *s_lbl_type;
 static lv_obj_t *s_icon_bt;        /* BT status icon (accented in BT mode) */
+static lv_obj_t *s_cover_img;      /* album art (hidden until a logo loads) */
+static lv_obj_t *s_cover_glyph;    /* placeholder shown when there is no art */
 static lv_obj_t *s_dots[MAX_DOTS];
 static int       s_dot_count;
 static int       s_active_dot;
@@ -196,11 +198,16 @@ static void build_main(lv_obj_t *scr)
     lv_obj_set_style_bg_color(cover, lv_color_hex(0x222222), 0);
     lv_obj_set_style_border_color(cover, COLOR_MUTED, 0);
     lv_obj_set_style_border_width(cover, 1, 0);
+    lv_obj_set_style_clip_corner(cover, true, 0);   /* round the art too */
     lv_obj_align(cover, LV_ALIGN_CENTER, 0, -35);
-    lv_obj_t *cover_icon = lv_label_create(cover);
-    lv_label_set_text(cover_icon, LV_SYMBOL_AUDIO);
-    lv_obj_set_style_text_color(cover_icon, COLOR_ACCENT, 0);
-    lv_obj_center(cover_icon);
+    s_cover_glyph = lv_label_create(cover);
+    lv_label_set_text(s_cover_glyph, LV_SYMBOL_AUDIO);
+    lv_obj_set_style_text_color(s_cover_glyph, COLOR_ACCENT, 0);
+    lv_obj_center(s_cover_glyph);
+    /* Album-art image overlays the glyph; hidden until a logo is fetched. */
+    s_cover_img = lv_img_create(cover);
+    lv_obj_center(s_cover_img);
+    lv_obj_add_flag(s_cover_img, LV_OBJ_FLAG_HIDDEN);
 
     /* Station name + type. */
     s_lbl_station = lv_label_create(scr);
@@ -407,6 +414,34 @@ void ui_show_status(ui_status_t status, const char *detail)
 }
 
 /* --------------------------------------------------------------------- */
+
+void ui_set_cover(const void *dsc)
+{
+    if (!s_cover_img) {
+        return;
+    }
+    if (!lvgl_port_lock(0)) {
+        return;
+    }
+    if (dsc) {
+        lv_img_set_src(s_cover_img, dsc);
+        /* Scale the decoded logo to fit the ~60px tile, centered. */
+        lv_img_set_pivot(s_cover_img, 0, 0);
+        lv_coord_t iw = lv_obj_get_width(s_cover_img);
+        lv_coord_t ih = lv_obj_get_height(s_cover_img);
+        lv_coord_t m = iw > ih ? iw : ih;
+        if (m > 0) {
+            lv_img_set_zoom(s_cover_img, (uint16_t)(60 * 256 / m));
+        }
+        lv_obj_center(s_cover_img);
+        lv_obj_clear_flag(s_cover_img, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_cover_glyph, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(s_cover_img, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(s_cover_glyph, LV_OBJ_FLAG_HIDDEN);
+    }
+    lvgl_port_unlock();
+}
 
 void ui_set_station(int index, const char *name)
 {
