@@ -53,8 +53,7 @@ static void idle_timer_cb(void *arg)
 static void arm_idle_timer(void)
 {
     if (!s_idle_timer) {
-        const esp_timer_create_args_t a = { .callback = idle_timer_cb, .name = "no_car" };
-        esp_timer_create(&a, &s_idle_timer);
+        return;   /* not initialised (deep sleep disabled / init failed) */
     }
     esp_timer_stop(s_idle_timer);   /* harmless if not running */
     esp_timer_start_once(s_idle_timer,
@@ -98,6 +97,14 @@ void power_sleep_boot_hook(void)
 
 void power_sleep_init(void)
 {
+    /* Create the timer eagerly (once, on the init task) so the lazily-shared
+     * pointer can't race between power_sleep_on_bt and power_sleep_kick. */
+    if (!s_idle_timer) {
+        const esp_timer_create_args_t a = { .callback = idle_timer_cb, .name = "no_car" };
+        if (esp_timer_create(&a, &s_idle_timer) != ESP_OK) {
+            s_idle_timer = NULL;
+        }
+    }
     /* Don't arm anything yet: a device that has never seen a car (e.g. sitting
      * at home for setup over the LAN editor) must stay awake and reachable. We
      * only sleep once a car has connected and then gone (the engine-off signal).

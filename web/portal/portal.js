@@ -146,6 +146,7 @@
       .catch(function () {
         submit.setAttribute('aria-busy', 'false');
         submit.disabled = false;
+        submit.classList.remove('shake');
         void submit.offsetWidth; submit.classList.add('shake');
       });
   });

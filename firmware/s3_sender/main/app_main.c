@@ -39,6 +39,9 @@
 #include "time_sync.h"
 #include "podcast.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
 #if defined(CONFIG_PRESET_ENABLE_PORTAL)
 #include "portal.h"
 #endif
@@ -63,6 +66,16 @@ static uint32_t s_disc_pos;       /* podcast byte position at BT disconnect */
 static bool s_long_gap;           /* BT was gone > 10 s -> resume on connect */
 static esp_timer_handle_t s_disc_timer;
 
+/* Playback worker: resolving a podcast feed (blocking HTTPS, up to 8 s) and
+ * writing the resume position to NVS (blocking flash) must NOT run on the
+ * encoder/UI/return-channel/esp_timer tasks — they would freeze the controls or
+ * stall the system timer. Those tasks post a request here and return; this one
+ * worker does the blocking work and is the sole caller into the pipeline, which
+ * also serialises pipeline access. */
+typedef enum { PLAY_APPLY, PLAY_SAVE_POS } play_op_t;
+typedef struct { play_op_t op; int index; bool save_outgoing; } play_req_t;
+static QueueHandle_t s_play_q;
+
 /* Resolve a preset to its play URL + resume offset. A podcast's URL is an RSS
  * feed: fetch it for the latest episode and resume at its saved byte position;
  * a live station plays its URL from the start. Returns false if unresolvable. */
@@ -86,12 +99,8 @@ static bool station_playspec(int index, char *url, size_t cap, uint32_t *offset)
     return true;
 }
 
-/* Apply a new station: resolve it, re-point the pipeline (resuming a podcast),
- * relay metadata, and refresh the UI. When `save_outgoing` is set and the
- * station we are leaving is a podcast, its current position is saved first, so
- * coming back to it resumes where you were. (The disconnect-resume re-play
- * passes false, so it does not overwrite the position saved at the drop.) */
-static void apply_station(int index, bool save_outgoing)
+/* The blocking body of a station change (runs on the playback worker). */
+static void apply_station_blocking(int index, bool save_outgoing)
 {
     const station_t *st = station_get(index);
     if (!st) {
@@ -122,11 +131,9 @@ static void apply_station(int index, bool save_outgoing)
 #endif
 }
 
-/* Fired when Bluetooth has been gone for > 10 s: persist the podcast position
- * captured at disconnect so playback resumes there on reconnect. */
-static void disc_timer_cb(void *arg)
+/* The blocking body of the 10 s-gap position commit (runs on the worker). */
+static void save_disc_pos_blocking(void)
 {
-    (void)arg;
     if (s_playing_idx >= 0 && s_playing_episode[0]) {
         const station_t *p = station_get(s_playing_idx);
         if (p && p->is_podcast) {
@@ -134,6 +141,59 @@ static void disc_timer_cb(void *arg)
             s_long_gap = true;
         }
     }
+}
+
+static void playback_worker(void *arg)
+{
+    (void)arg;
+    play_req_t req;
+    for (;;) {
+        if (xQueueReceive(s_play_q, &req, portMAX_DELAY) != pdTRUE) {
+            continue;
+        }
+        if (req.op == PLAY_APPLY) {
+            apply_station_blocking(req.index, req.save_outgoing);
+        } else {
+            save_disc_pos_blocking();
+        }
+    }
+}
+
+/* Post work to the playback worker (non-blocking). Before the worker exists
+ * (early boot) the request runs inline — safe, since the only early callers are
+ * on the init task. A full queue just drops the request (fast knob spins
+ * coalesce to the latest landing). */
+static void playback_post(play_op_t op, int index, bool save_outgoing)
+{
+    if (!s_play_q) {
+        if (op == PLAY_APPLY) {
+            apply_station_blocking(index, save_outgoing);
+        } else {
+            save_disc_pos_blocking();
+        }
+        return;
+    }
+    play_req_t req = { .op = op, .index = index, .save_outgoing = save_outgoing };
+    xQueueSend(s_play_q, &req, 0);
+}
+
+/* Apply a new station (resolve, re-point the pipeline, relay metadata, refresh
+ * the UI). When `save_outgoing` is set and the station we are leaving is a
+ * podcast, its current position is saved first, so coming back resumes where you
+ * were. (The disconnect-resume re-play passes false, so it does not overwrite
+ * the position saved at the drop.) Non-blocking: the work runs on the worker. */
+static void apply_station(int index, bool save_outgoing)
+{
+    playback_post(PLAY_APPLY, index, save_outgoing);
+}
+
+/* Fired when Bluetooth has been gone for > 10 s: persist the podcast position
+ * captured at disconnect so playback resumes there on reconnect. Runs in the
+ * esp_timer task, so it only posts to the worker (no blocking NVS here). */
+static void disc_timer_cb(void *arg)
+{
+    (void)arg;
+    playback_post(PLAY_SAVE_POS, 0, false);
 }
 
 /* Auto-play scheduler: pick the preset whose schedule window is active right
@@ -236,10 +296,14 @@ static void on_bt_status(uint8_t state)
                 if (!s_disc_timer) {
                     const esp_timer_create_args_t a = { .callback = disc_timer_cb,
                                                         .name = "bt_gap" };
-                    esp_timer_create(&a, &s_disc_timer);
+                    if (esp_timer_create(&a, &s_disc_timer) != ESP_OK) {
+                        s_disc_timer = NULL;
+                    }
                 }
-                esp_timer_stop(s_disc_timer);
-                esp_timer_start_once(s_disc_timer, 10 * 1000000ULL);   /* 10 s */
+                if (s_disc_timer) {
+                    esp_timer_stop(s_disc_timer);
+                    esp_timer_start_once(s_disc_timer, 10 * 1000000ULL);   /* 10 s */
+                }
             }
         }
     }
@@ -248,6 +312,12 @@ static void on_bt_status(uint8_t state)
 static void phase_e_start(void)
 {
     station_init();
+
+    /* Playback worker: owns the blocking podcast-resolve + NVS writes + pipeline
+     * changes, fed by the input/timer/return tasks (core 0, off the audio core).
+     * 8 KB stack covers the HTTPS/TLS fetch in podcast_resolve. */
+    s_play_q = xQueueCreate(8, sizeof(play_req_t));
+    xTaskCreatePinnedToCore(playback_worker, "playback", 8192, NULL, 5, NULL, 0);
 
     /* Bring the UI up first so its transient overlay can narrate boot. */
 #if defined(CONFIG_PRESET_ENABLE_UI)
@@ -309,6 +379,7 @@ static void phase_e_start(void)
         s_playing_idx = cur;
         if (st->is_podcast) {
             strncpy(s_playing_episode, play_url, sizeof(s_playing_episode) - 1);
+            s_playing_episode[sizeof(s_playing_episode) - 1] = '\0';
         }
     } else {
         adf_pipeline_start(st ? st->url : "", 0);   /* fallback */

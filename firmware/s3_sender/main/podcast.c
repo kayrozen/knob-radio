@@ -11,6 +11,7 @@
 #include "nvs.h"
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 
 static const char *TAG = "podcast";
@@ -35,7 +36,12 @@ bool podcast_resolve(const char *feed_url, char *out, size_t cap)
     }
 
     bool ok = false;
-    char *buf = malloc(FEED_MAX_BYTES + 1);
+    /* 192 KB is hard to find contiguous in internal RAM once fragmented; prefer
+     * PSRAM (present on the R8 module), falling back to internal if there's none. */
+    char *buf = heap_caps_malloc(FEED_MAX_BYTES + 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) {
+        buf = malloc(FEED_MAX_BYTES + 1);
+    }
     if (buf && esp_http_client_open(c, 0) == ESP_OK) {
         esp_http_client_fetch_headers(c);
         int total = 0, r;
