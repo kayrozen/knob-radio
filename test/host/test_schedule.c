@@ -45,11 +45,25 @@ static void test_active(void)
     station_sched_t e = { .mode = 1, .days = 0x7F, .start_min = 600, .end_min = 600 };
     CHECK(!schedule_active(&e, TUE, 600), "empty window inactive");
 
-    /* Wraps past midnight: 22:00 -> 06:00. */
+    /* Wraps past midnight: 22:00 -> 06:00, every day. */
     station_sched_t w = { .mode = 1, .days = 0x7F, .start_min = 1320, .end_min = 360 };
     CHECK(schedule_active(&w, TUE, 1380), "23:00 active in wrap window");
     CHECK(schedule_active(&w, TUE, 300),  "05:00 active in wrap window");
     CHECK(!schedule_active(&w, TUE, 720), "12:00 inactive in wrap window");
+
+    /* Wrap with only SOME days enabled: a Mon-only 22:00 -> 06:00 show runs into
+     * Tuesday morning even though Tuesday itself isn't scheduled. */
+    station_sched_t wm = { .mode = 1, .days = 0x01 /* Mon */, .start_min = 1320, .end_min = 360 };
+    CHECK(schedule_active(&wm, MON, 1380), "Mon 23:00 active (window starts)");
+    CHECK(schedule_active(&wm, TUE, 300),  "Tue 05:00 active (Mon show spilled over)");
+    CHECK(!schedule_active(&wm, TUE, 1380),"Tue 23:00 inactive (Tue not scheduled)");
+    CHECK(!schedule_active(&wm, MON, 300), "Mon 05:00 inactive (Sun not scheduled)");
+
+    /* The mirror case: Tue enabled, Mon not — must NOT be active in Tue's early
+     * hours (yesterday's window didn't run), but IS once Tue's window starts. */
+    station_sched_t wt = { .mode = 1, .days = 0x02 /* Tue */, .start_min = 1320, .end_min = 360 };
+    CHECK(!schedule_active(&wt, TUE, 300), "Tue 05:00 inactive (Mon not scheduled)");
+    CHECK(schedule_active(&wt, TUE, 1380), "Tue 23:00 active (window starts)");
 }
 
 static void test_pick(void)

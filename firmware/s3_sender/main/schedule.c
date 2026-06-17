@@ -8,17 +8,35 @@ int schedule_active(const station_sched_t *s, int weekday, int minute)
     if (!s || s->mode != 1) {
         return 0;                         /* manual / on-demand */
     }
-    if (weekday < 0 || weekday > 6 || !(s->days & (1u << weekday))) {
-        return 0;                         /* not enabled today */
+    if (weekday < 0 || weekday > 6) {
+        return 0;
     }
     if (s->start_min == s->end_min) {
         return 0;                         /* empty window */
     }
-    if (s->start_min < s->end_min) {
-        return minute >= s->start_min && minute < s->end_min;
+
+    const int wraps = s->start_min > s->end_min;   /* spills past midnight */
+
+    /* A window that STARTS today (the part on its own day). For a wrapping
+     * window that's everything from start_min to midnight; otherwise the plain
+     * [start, end) interval. */
+    if (s->days & (1u << weekday)) {
+        if (wraps ? (minute >= s->start_min)
+                  : (minute >= s->start_min && minute < s->end_min)) {
+            return 1;
+        }
     }
-    /* Window wraps past midnight (e.g. 22:00 -> 06:00). */
-    return minute >= s->start_min || minute < s->end_min;
+
+    /* The tail of a wrapping window that STARTED yesterday and ran past midnight
+     * into today's early hours — active even if today itself isn't scheduled. */
+    if (wraps) {
+        int prev = (weekday + 6) % 7;     /* yesterday */
+        if ((s->days & (1u << prev)) && minute < s->end_min) {
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 int schedule_pick(const station_sched_t *scheds, size_t n, int weekday, int minute)

@@ -278,6 +278,10 @@ static esp_err_t h_api_wifi(httpd_req_t *req)
 /* GET /api/bt/scan -> ask the bridge to discover sinks, collect, return them. */
 static esp_err_t h_api_bt_scan(httpd_req_t *req)
 {
+    if (!s_bt_lock) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "no lock");
+        return ESP_FAIL;
+    }
     xSemaphoreTake(s_bt_lock, portMAX_DELAY);
     s_bt_n = 0;
     xSemaphoreGive(s_bt_lock);
@@ -334,6 +338,10 @@ static esp_err_t h_api_bt(httpd_req_t *req)
     }
     uint8_t mac[6];
     for (int i = 0; i < 6; i++) {
+        if (m[i] > 0xFF) {                  /* reject out-of-range octets */
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "bad mac");
+            return ESP_FAIL;
+        }
         mac[i] = (uint8_t)m[i];
     }
     uart_writer_send_control(PCM_LINK_CTRL_BT_PAIR, mac, 6);

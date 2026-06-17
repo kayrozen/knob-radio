@@ -114,15 +114,19 @@ static void apply_station_blocking(int index, bool save_outgoing)
     }
     char url[STATION_URL_MAX];
     uint32_t offset = 0;
-    if (station_playspec(index, url, sizeof(url), &offset)) {
-        adf_pipeline_set_url(url, offset);   /* PCM pauses briefly; A2DP survives */
-        s_playing_idx = index;
-        if (st->is_podcast) {
-            strncpy(s_playing_episode, url, sizeof(s_playing_episode) - 1);
-            s_playing_episode[sizeof(s_playing_episode) - 1] = '\0';
-        } else {
-            s_playing_episode[0] = '\0';
-        }
+    if (!station_playspec(index, url, sizeof(url), &offset)) {
+        /* Couldn't resolve (e.g. podcast feed unreachable): leave the pipeline
+         * and the UI/metadata on the current station so they stay in sync. */
+        ESP_LOGW(TAG, "could not resolve preset %d; staying put", index);
+        return;
+    }
+    adf_pipeline_set_url(url, offset);       /* PCM pauses briefly; A2DP survives */
+    s_playing_idx = index;
+    if (st->is_podcast) {
+        strncpy(s_playing_episode, url, sizeof(s_playing_episode) - 1);
+        s_playing_episode[sizeof(s_playing_episode) - 1] = '\0';
+    } else {
+        s_playing_episode[0] = '\0';
     }
     audio_output_send_metadata(st->name);    /* BT: relay to the car via AVRCP */
 #if defined(CONFIG_PRESET_ENABLE_UI)
