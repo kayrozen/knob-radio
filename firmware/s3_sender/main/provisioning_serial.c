@@ -1,13 +1,19 @@
 /*
  * provisioning_serial.c — see provisioning_serial.h.
+ *
+ * The browser installer sends a `PROVISION:{…}` line over USB. The console is
+ * the USB-Serial-JTAG port (CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG), which already
+ * installs that driver and wires stdio to it — so we must read the line from
+ * stdin and reply on stdout rather than installing the driver a second time and
+ * reading it directly (which would conflict with the console's stdio).
  */
 #include "provisioning_serial.h"
 #include "provision_apply.h"
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
-#include "driver/usb_serial_jtag.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -17,14 +23,16 @@
 
 static void respond(const char *s)
 {
-    usb_serial_jtag_write_bytes((const uint8_t *)s, strlen(s), pdMS_TO_TICKS(200));
+    fputs(s, stdout);
+    fflush(stdout);
 }
 
 static void provision_task(void *arg)
 {
     (void)arg;
-    usb_serial_jtag_driver_config_t cfg = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
-    usb_serial_jtag_driver_install(&cfg);
+    /* Unbuffered stdio so bytes arrive/leave as the installer sends/expects. */
+    setvbuf(stdin, NULL, _IONBF, 0);
+    setvbuf(stdout, NULL, _IONBF, 0);
 
     char *line = malloc(LINE_MAX);
     if (!line) {
@@ -35,16 +43,17 @@ static void provision_task(void *arg)
     const size_t plen = strlen(PROVISION_PREFIX);
 
     for (;;) {
-        uint8_t c;
-        if (usb_serial_jtag_read_bytes(&c, 1, portMAX_DELAY) != 1) {
+        int ch = fgetc(stdin);
+        if (ch == EOF) {
+            vTaskDelay(pdMS_TO_TICKS(20));   /* no data yet: yield and poll */
             continue;
         }
-        if (c == '\r') {
+        if (ch == '\r') {
             continue;
         }
-        if (c != '\n') {
+        if (ch != '\n') {
             if (len < LINE_MAX - 1) {
-                line[len++] = (char)c;
+                line[len++] = (char)ch;
             } else {
                 len = 0;   /* overrun: drop the line */
             }

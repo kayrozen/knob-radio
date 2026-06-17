@@ -927,20 +927,18 @@ async function sendProvisioning(port) {
   writer.releaseLock();
   const reader = port.readable.getReader();
   let response = '';
-  const deadline = Date.now() + 10000;
+  // One timeout that cancels the read; never race two reader.read() calls on the
+  // same reader (that throws "Already reading").
+  const timeoutId = setTimeout(() => { reader.cancel().catch(() => {}); }, 10000);
   try {
-    while (Date.now() < deadline) {
-      const { value, done } = await Promise.race([
-        reader.read(),
-        new Promise(res => setTimeout(() => res({ value: null, done: false }), 500)),
-      ]);
+    while (true) {
+      const { value, done } = await reader.read();
       if (done) break;
       if (value) {
         response += new TextDecoder().decode(value);
         if (response.includes('OK')) {
           statusEl.textContent = T('provisioned');
           statusEl.className = 'status-msg';
-          reader.releaseLock();
           return;
         }
         if (response.includes('ERR:')) {
@@ -949,10 +947,10 @@ async function sendProvisioning(port) {
         }
       }
     }
-    throw new Error(T('timedOut'));
-  } catch (e) {
+    throw new Error(T('timedOut'));   // reader.cancel() (timeout) ends the loop
+  } finally {
+    clearTimeout(timeoutId);
     reader.releaseLock();
-    throw e;
   }
 }
 const installBtn = document.getElementById('install-btn');

@@ -106,11 +106,13 @@ bool provision_apply_json(const char *json)
         settings_set_timezone(tz->valuestring);
     }
 
-    /* Static backing store for the station_t pointers (this task only). */
-    static station_t entries[STATION_MAX];
-    static char nbuf[STATION_MAX][STATION_NAME_MAX];
-    static char ubuf[STATION_MAX][STATION_URL_MAX];
-    static char tbuf[STATION_MAX][STATION_TAG_MAX];
+    /* Backing store for the station_t pointers. Stack-local (not static): this
+     * is called from both the serial task and the LAN-editor HTTP task, so the
+     * buffers must not be shared. station_set_playlist copies the strings out. */
+    station_t entries[STATION_MAX];
+    char nbuf[STATION_MAX][STATION_NAME_MAX];
+    char ubuf[STATION_MAX][STATION_URL_MAX];
+    char tbuf[STATION_MAX][STATION_TAG_MAX];
 
     size_t n = 0;
     const cJSON *item = NULL;

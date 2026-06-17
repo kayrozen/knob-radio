@@ -163,6 +163,7 @@ static void http_start(void)
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     cfg.max_uri_handlers = 12;
     cfg.lru_purge_enable = true;
+    cfg.stack_size = 8192;   /* POST handler parses JSON + ~1.8KB provision bufs */
     if (httpd_start(&server, &cfg) != ESP_OK) {
         ESP_LOGW(TAG, "http server did not start");
         return;
@@ -189,7 +190,8 @@ void lan_editor_start(void)
     char name[SETTINGS_STR_MAX];
     settings_get_device_name(name);
 
-    if (mdns_init() == ESP_OK) {
+    esp_err_t e = mdns_init();
+    if (e == ESP_OK || e == ESP_ERR_INVALID_STATE) {   /* already up is fine */
         mdns_hostname_set(name);                 /* -> <name>.local */
         mdns_instance_name_set("Preset");
         mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);

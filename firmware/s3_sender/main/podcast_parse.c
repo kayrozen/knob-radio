@@ -30,12 +30,14 @@ static size_t url_in_tag(const char *tag, char *out, size_t cap)
     const char *u = tag;
     while ((u = strstr(u, "url=")) != NULL && u < end) {
         const char *v = u + 4;
-        char q = *v;
+        char q = (v < end) ? *v : '\0';
         if (q == '"' || q == '\'') {
             v++;
-            const char *vend = memchr(v, q, (size_t)(end - v));
-            if (vend) {
-                return copy_decoded(v, (size_t)(vend - v), out, cap);
+            if (v < end) {
+                const char *vend = memchr(v, q, (size_t)(end - v));
+                if (vend) {
+                    return copy_decoded(v, (size_t)(vend - v), out, cap);
+                }
             }
         }
         u += 4;
