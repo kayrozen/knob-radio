@@ -43,6 +43,7 @@ static void apply_station(int index)
         return;
     }
     adf_pipeline_set_url(st->url);   /* PCM pauses briefly; A2DP link survives */
+    audio_output_send_metadata(st->name);  /* BT: relay to the car via AVRCP */
 #if defined(CONFIG_PRESET_ENABLE_UI)
     ui_set_station(index, st->name);
 #endif

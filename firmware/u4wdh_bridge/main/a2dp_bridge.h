@@ -39,6 +39,11 @@ void a2dp_bridge_set_buffer(jitter_buffer_t *jb);
 /* Begin discovery/connection to the target sink. */
 void a2dp_bridge_start_discovery(void);
 
+/* Store the now-playing title relayed from the S3 (PCM_LINK_CTRL_METADATA).
+ * Kept for the AVRCP target attribute response to the car (Phase 11); for now
+ * it is stored and logged. */
+void a2dp_bridge_set_metadata(const char *title);
+
 #ifdef __cplusplus
 }
 #endif

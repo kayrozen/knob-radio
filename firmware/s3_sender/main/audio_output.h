@@ -26,6 +26,11 @@ void audio_output_start(audio_output_mode_t mode);
 
 audio_output_mode_t audio_output_mode(void);
 
+/* Relay now-playing text to the sink. In BT mode it goes to the U4WDH over the
+ * control plane (which forwards it to the car via AVRCP); in analog mode there
+ * is no sink to tell, so it is a no-op (the board screen shows it directly). */
+void audio_output_send_metadata(const char *title);
+
 #ifdef __cplusplus
 }
 #endif

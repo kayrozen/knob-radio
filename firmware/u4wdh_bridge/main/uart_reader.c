@@ -6,6 +6,7 @@
 #include "pcm_link_rx.h"
 #include "control_msg.h"
 #include "dac_mute.h"
+#include "a2dp_bridge.h"
 
 #include "driver/uart.h"
 #include "driver/gpio.h"
@@ -44,6 +45,16 @@ static void on_control(uart_reader_ctx_t *ctx, const pcm_frame_t *frame)
             dac_mute_set(msg.args[0] != 0);
         }
         break;
+    case PCM_LINK_CTRL_METADATA: {
+        /* now-playing title to relay to the car over AVRCP. */
+        char title[64];
+        size_t n = msg.arg_len < sizeof(title) - 1 ? msg.arg_len
+                                                    : sizeof(title) - 1;
+        memcpy(title, msg.args, n);
+        title[n] = '\0';
+        a2dp_bridge_set_metadata(title);
+        break;
+    }
     default:
         ESP_LOGI(TAG, "control op=0x%02x args=%u", msg.op, (unsigned)msg.arg_len);
         break;

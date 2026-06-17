@@ -9,7 +9,7 @@ set(srcs
     "audio_output.c"
     "dac_control.c"
     "station.c")            # small, dependency-free; always compiled
-set(reqs pcm_link driver nvs_flash esp_timer)
+set(reqs pcm_link driver nvs_flash esp_timer json)
 
 # IMPORTANT: SRCS may depend on Kconfig, but REQUIRES may NOT — component
 # requirements are expanded BEFORE sdkconfig is loaded, so a CONFIG_* test here

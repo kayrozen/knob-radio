@@ -8,9 +8,13 @@
 #include "dac_control.h"
 #include "pcm_link_proto.h"
 
+#include "control_msg.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+
+#include <string.h>
 
 static const char *TAG = "audio_out";
 
@@ -57,4 +61,17 @@ void audio_output_start(audio_output_mode_t mode)
 audio_output_mode_t audio_output_mode(void)
 {
     return s_mode;
+}
+
+void audio_output_send_metadata(const char *title)
+{
+    if (s_mode != AUDIO_OUTPUT_BT || !title || !title[0]) {
+        return;   /* analog mode: no sink to notify */
+    }
+    size_t len = strlen(title);
+    if (len > PCM_LINK_CTRL_MAX_ARGS) {
+        len = PCM_LINK_CTRL_MAX_ARGS;
+    }
+    uart_writer_send_control(PCM_LINK_CTRL_METADATA, (const uint8_t *)title,
+                             (uint16_t)len);
 }

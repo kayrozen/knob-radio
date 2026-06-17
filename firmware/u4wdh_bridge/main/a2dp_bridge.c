@@ -27,6 +27,18 @@ static jitter_buffer_t *s_jb;
 static esp_bd_addr_t    s_peer_bda;
 static bool             s_peer_found;
 static bool             s_connected;
+static char             s_metadata[64];   /* now-playing title (for AVRCP TG) */
+
+void a2dp_bridge_set_metadata(const char *title)
+{
+    if (!title) {
+        return;
+    }
+    strncpy(s_metadata, title, sizeof(s_metadata) - 1);
+    s_metadata[sizeof(s_metadata) - 1] = '\0';
+    /* Phase 11 will surface this as the AVRCP target's TITLE attribute. */
+    ESP_LOGI(TAG, "now playing: %s", s_metadata);
+}
 
 /* ----- discovery: pull a device name out of the EIR --------------------- */
 static bool get_name_from_eir(uint8_t *eir, char *out, size_t out_len)
