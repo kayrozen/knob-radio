@@ -21,9 +21,13 @@ extern "C" {
  * Returns true on success. Blocking (HTTP); call off the audio path. */
 bool podcast_resolve(const char *feed_url, char *out, size_t cap);
 
-/* Remembered resume position (source byte offset) for a feed; 0 if none. */
-uint32_t podcast_pos_get(const char *feed_url);
-void     podcast_pos_set(const char *feed_url, uint32_t byte_offset);
+/* Remembered resume position for a feed. The position is tied to a specific
+ * episode: podcast_pos_get returns the saved byte offset only if `episode_url`
+ * still matches the episode that was saved — so if a newer episode has dropped
+ * since, it returns 0 and the new episode starts from the beginning. */
+uint32_t podcast_pos_get(const char *feed_url, const char *episode_url);
+void     podcast_pos_set(const char *feed_url, const char *episode_url,
+                         uint32_t byte_offset);
 
 #ifdef __cplusplus
 }

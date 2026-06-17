@@ -50,6 +50,7 @@ static const char *TAG = "s3_main";
 
 #if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
 static int  s_playing_idx = -1;   /* preset currently feeding the pipeline */
+static char s_playing_episode[STATION_URL_MAX];  /* resolved podcast episode URL */
 static uint32_t s_disc_pos;       /* podcast byte position at BT disconnect */
 static bool s_long_gap;           /* BT was gone > 10 s -> resume on connect */
 static esp_timer_handle_t s_disc_timer;
@@ -67,7 +68,8 @@ static bool station_playspec(int index, char *url, size_t cap, uint32_t *offset)
         if (!podcast_resolve(st->url, url, cap)) {
             return false;
         }
-        *offset = podcast_pos_get(st->url);   /* resume where we left off */
+        /* Resume only if it is still the same episode (else start the new one). */
+        *offset = podcast_pos_get(st->url, url);
     } else {
         strncpy(url, st->url, cap - 1);
         url[cap - 1] = '\0';
@@ -89,6 +91,12 @@ static void apply_station(int index)
     if (station_playspec(index, url, sizeof(url), &offset)) {
         adf_pipeline_set_url(url, offset);   /* PCM pauses briefly; A2DP survives */
         s_playing_idx = index;
+        if (st->is_podcast) {
+            strncpy(s_playing_episode, url, sizeof(s_playing_episode) - 1);
+            s_playing_episode[sizeof(s_playing_episode) - 1] = '\0';
+        } else {
+            s_playing_episode[0] = '\0';
+        }
     }
     audio_output_send_metadata(st->name);    /* BT: relay to the car via AVRCP */
 #if defined(CONFIG_PRESET_ENABLE_UI)
@@ -102,10 +110,10 @@ static void apply_station(int index)
 static void disc_timer_cb(void *arg)
 {
     (void)arg;
-    if (s_playing_idx >= 0) {
+    if (s_playing_idx >= 0 && s_playing_episode[0]) {
         const station_t *p = station_get(s_playing_idx);
         if (p && p->is_podcast) {
-            podcast_pos_set(p->url, s_disc_pos);
+            podcast_pos_set(p->url, s_playing_episode, s_disc_pos);
             s_long_gap = true;
         }
     }
@@ -261,6 +269,9 @@ static void phase_e_start(void)
     if (st && station_playspec(cur, play_url, sizeof(play_url), &play_off)) {
         adf_pipeline_start(play_url, play_off);
         s_playing_idx = cur;
+        if (st->is_podcast) {
+            strncpy(s_playing_episode, play_url, sizeof(s_playing_episode) - 1);
+        }
     } else {
         adf_pipeline_start(st ? st->url : "", 0);   /* fallback */
     }

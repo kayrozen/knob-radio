@@ -58,46 +58,63 @@ bool podcast_resolve(const char *feed_url, char *out, size_t cap)
 }
 
 /* ----------------------------------------------------------------------- *
- *  Resume position (per feed), keyed by a hash of the feed URL.
+ *  Resume position, keyed by a hash of the feed URL. The record also pins the
+ *  episode (a hash of its audio URL) so a newer episode resets the position.
  * ----------------------------------------------------------------------- */
 #define NVS_NS  "podpos"
 
-static void pos_key(const char *url, char *key /* >=10 */)
+typedef struct {
+    uint32_t episode;   /* hash of the episode audio URL the offset belongs to */
+    uint32_t offset;    /* source byte offset within that episode              */
+} pos_rec_t;
+
+static uint32_t fnv1a(const char *s)
 {
-    uint32_t h = 2166136261u;            /* FNV-1a */
-    for (const char *p = url; *p; p++) {
-        h ^= (uint8_t)*p;
+    uint32_t h = 2166136261u;
+    for (; s && *s; s++) {
+        h ^= (uint8_t)*s;
         h *= 16777619u;
     }
-    snprintf(key, 10, "p%08lx", (unsigned long)h);
+    return h;
 }
 
-uint32_t podcast_pos_get(const char *feed_url)
+static void pos_key(const char *feed_url, char *key /* >=10 */)
 {
-    if (!feed_url) {
+    snprintf(key, 10, "p%08lx", (unsigned long)fnv1a(feed_url));
+}
+
+uint32_t podcast_pos_get(const char *feed_url, const char *episode_url)
+{
+    if (!feed_url || !episode_url) {
         return 0;
     }
     char key[10];
     pos_key(feed_url, key);
+    pos_rec_t rec = { 0, 0 };
     nvs_handle_t h;
-    uint32_t v = 0;
+    size_t sz = sizeof(rec);
     if (nvs_open(NVS_NS, NVS_READONLY, &h) == ESP_OK) {
-        nvs_get_u32(h, key, &v);
+        nvs_get_blob(h, key, &rec, &sz);
         nvs_close(h);
     }
-    return v;
+    if (rec.episode != fnv1a(episode_url)) {
+        return 0;   /* a newer episode dropped -> start it from the beginning */
+    }
+    return rec.offset;
 }
 
-void podcast_pos_set(const char *feed_url, uint32_t byte_offset)
+void podcast_pos_set(const char *feed_url, const char *episode_url,
+                     uint32_t byte_offset)
 {
-    if (!feed_url) {
+    if (!feed_url || !episode_url) {
         return;
     }
     char key[10];
     pos_key(feed_url, key);
+    pos_rec_t rec = { fnv1a(episode_url), byte_offset };
     nvs_handle_t h;
     if (nvs_open(NVS_NS, NVS_READWRITE, &h) == ESP_OK) {
-        nvs_set_u32(h, key, byte_offset);
+        nvs_set_blob(h, key, &rec, sizeof(rec));
         nvs_commit(h);
         nvs_close(h);
     }
