@@ -20,6 +20,9 @@ JB_SRCS   := test_jitter_buffer.c \
 SCHED_SRCS := test_schedule.c \
              $(S3)/schedule.c
 
+POD_SRCS  := test_podcast.c \
+             $(S3)/podcast_parse.c
+
 .PHONY: all test clean
 all: test
 
@@ -32,10 +35,14 @@ test_jitter_buffer: $(JB_SRCS)
 test_schedule: $(SCHED_SRCS)
 	$(CC) $(CFLAGS) -I$(S3) $(SCHED_SRCS) -o $@
 
-test: test_pcm_link test_jitter_buffer test_schedule
+test_podcast: $(POD_SRCS)
+	$(CC) $(CFLAGS) -I$(S3) $(POD_SRCS) -o $@
+
+test: test_pcm_link test_jitter_buffer test_schedule test_podcast
 	./test_pcm_link
 	./test_jitter_buffer
 	./test_schedule
+	./test_podcast
 
 clean:
-	rm -f test_pcm_link test_jitter_buffer test_schedule
+	rm -f test_pcm_link test_jitter_buffer test_schedule test_podcast

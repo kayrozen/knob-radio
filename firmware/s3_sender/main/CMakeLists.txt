@@ -10,6 +10,7 @@ set(srcs
     "dac_control.c"
     "settings.c"
     "schedule.c"            # pure auto-play scheduler (host-tested)
+    "podcast_parse.c"       # pure RSS enclosure parser (host-tested)
     "station.c")            # small, dependency-free; always compiled
 set(reqs pcm_link driver nvs_flash esp_timer json)
 
@@ -34,7 +35,7 @@ endif()
 
 # Phase E sources: the ESP-ADF pipeline, WiFi and the encoder.
 if(CONFIG_PRESET_AUDIO_SOURCE_ADF)
-    list(APPEND srcs "wifi_sta.c" "encoder.c" "adf_pipeline.c" "time_sync.c")
+    list(APPEND srcs "wifi_sta.c" "encoder.c" "adf_pipeline.c" "time_sync.c" "podcast.c")
 endif()
 
 # Phase E requirements: the ESP-ADF components only exist when ADF_PATH is

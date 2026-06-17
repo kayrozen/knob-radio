@@ -35,6 +35,8 @@
 #include "adf_pipeline.h"
 #include "schedule.h"
 #include "time_sync.h"
+#include "podcast.h"
+#include "esp_timer.h"
 #if defined(CONFIG_PRESET_ENABLE_PORTAL)
 #include "portal.h"
 #endif
@@ -47,20 +49,66 @@
 static const char *TAG = "s3_main";
 
 #if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
-/* Apply a new station: re-point the pipeline and refresh the UI. Shared by the
- * encoder and the touch buttons (the haptic differs per source — see below). */
+static int  s_playing_idx = -1;   /* preset currently feeding the pipeline */
+static uint32_t s_disc_pos;       /* podcast byte position at BT disconnect */
+static bool s_long_gap;           /* BT was gone > 10 s -> resume on connect */
+static esp_timer_handle_t s_disc_timer;
+
+/* Resolve a preset to its play URL + resume offset. A podcast's URL is an RSS
+ * feed: fetch it for the latest episode and resume at its saved byte position;
+ * a live station plays its URL from the start. Returns false if unresolvable. */
+static bool station_playspec(int index, char *url, size_t cap, uint32_t *offset)
+{
+    const station_t *st = station_get(index);
+    if (!st) {
+        return false;
+    }
+    if (st->is_podcast) {
+        if (!podcast_resolve(st->url, url, cap)) {
+            return false;
+        }
+        *offset = podcast_pos_get(st->url);   /* resume where we left off */
+    } else {
+        strncpy(url, st->url, cap - 1);
+        url[cap - 1] = '\0';
+        *offset = 0;
+    }
+    return true;
+}
+
+/* Apply a new station: resolve it, re-point the pipeline (resuming a podcast),
+ * relay metadata, and refresh the UI. */
 static void apply_station(int index)
 {
     const station_t *st = station_get(index);
     if (!st) {
         return;
     }
-    adf_pipeline_set_url(st->url);   /* PCM pauses briefly; A2DP link survives */
-    audio_output_send_metadata(st->name);  /* BT: relay to the car via AVRCP */
+    char url[STATION_URL_MAX];
+    uint32_t offset = 0;
+    if (station_playspec(index, url, sizeof(url), &offset)) {
+        adf_pipeline_set_url(url, offset);   /* PCM pauses briefly; A2DP survives */
+        s_playing_idx = index;
+    }
+    audio_output_send_metadata(st->name);    /* BT: relay to the car via AVRCP */
 #if defined(CONFIG_PRESET_ENABLE_UI)
     ui_set_station(index, st->name);
-    album_art_load(st->favicon);     /* fetch + show the station logo */
+    album_art_load(st->favicon);             /* fetch + show the station logo */
 #endif
+}
+
+/* Fired when Bluetooth has been gone for > 10 s: persist the podcast position
+ * captured at disconnect so playback resumes there on reconnect. */
+static void disc_timer_cb(void *arg)
+{
+    (void)arg;
+    if (s_playing_idx >= 0) {
+        const station_t *p = station_get(s_playing_idx);
+        if (p && p->is_podcast) {
+            podcast_pos_set(p->url, s_disc_pos);
+            s_long_gap = true;
+        }
+    }
 }
 
 /* Auto-play scheduler: pick the preset whose schedule window is active right
@@ -119,16 +167,46 @@ static void on_avrcp(uint8_t cmd)
     }
 }
 
-/* Bluetooth connection state from the bridge -> UI overlay. */
+/* Bluetooth connection state from the bridge: drive the schedule, the podcast
+ * resume-after-10s rule, and the UI overlay. */
 static void on_bt_status(uint8_t state)
 {
     if (state == PCM_LINK_BT_CONNECTED) {
-        scheduler_apply();   /* land on the scheduled preset on connect */
+        if (s_disc_timer) {
+            esp_timer_stop(s_disc_timer);   /* cancel the pending 10 s window */
+        }
+        scheduler_apply();                  /* land on the scheduled preset */
+        /* If BT was gone > 10 s, jump the (podcast) back to where it dropped —
+         * the pipeline kept running 'live' meanwhile. */
+        if (s_long_gap) {
+            const station_t *cur = station_get(station_current());
+            if (cur && cur->is_podcast) {
+                apply_station(station_current());
+            }
+            s_long_gap = false;
+        }
 #if defined(CONFIG_PRESET_ENABLE_UI)
         ui_show_status(UI_STATUS_NONE, NULL);
+#endif
     } else if (state == PCM_LINK_BT_CONNECTING) {
+#if defined(CONFIG_PRESET_ENABLE_UI)
         ui_show_status(UI_STATUS_PAIRING, NULL);
 #endif
+    } else if (state == PCM_LINK_BT_DISCONNECTED) {
+        /* Capture the podcast position now; commit it only if BT stays gone. */
+        if (s_playing_idx >= 0) {
+            const station_t *p = station_get(s_playing_idx);
+            if (p && p->is_podcast) {
+                s_disc_pos = adf_pipeline_byte_pos();
+                if (!s_disc_timer) {
+                    const esp_timer_create_args_t a = { .callback = disc_timer_cb,
+                                                        .name = "bt_gap" };
+                    esp_timer_create(&a, &s_disc_timer);
+                }
+                esp_timer_stop(s_disc_timer);
+                esp_timer_start_once(s_disc_timer, 10 * 1000000ULL);   /* 10 s */
+            }
+        }
     }
 }
 
@@ -174,10 +252,22 @@ static void phase_e_start(void)
     /* Wall-clock time -> when it first syncs, jump to the scheduled preset. */
     time_sync_start(scheduler_apply);
 
-    const station_t *st = station_current_station();
-    adf_pipeline_start(st->url);
+    /* Initial play: resolve the current preset (podcast -> latest episode at its
+     * saved position) and start the pipeline on it. */
+    int cur = station_current();
+    const station_t *st = station_get(cur);
+    char play_url[STATION_URL_MAX];
+    uint32_t play_off = 0;
+    if (st && station_playspec(cur, play_url, sizeof(play_url), &play_off)) {
+        adf_pipeline_start(play_url, play_off);
+        s_playing_idx = cur;
+    } else {
+        adf_pipeline_start(st ? st->url : "", 0);   /* fallback */
+    }
 #if defined(CONFIG_PRESET_ENABLE_UI)
-    album_art_load(st->favicon);            /* logo for the initial station */
+    if (st) {
+        album_art_load(st->favicon);        /* logo for the initial station */
+    }
 #endif
 
     encoder_start(CONFIG_PRESET_ENC_GPIO_A, CONFIG_PRESET_ENC_GPIO_B,

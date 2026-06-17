@@ -34,8 +34,9 @@ typedef struct {
 typedef struct {
     const char *name;     /* shown on the display                       */
     const char *tag;      /* short subtitle, e.g. codec/kind            */
-    const char *url;      /* stream URL (Icecast MP3/AAC, or HLS .m3u8) */
+    const char *url;      /* live stream URL, or (podcast) the RSS feed */
     const char *favicon;  /* station logo URL for album art (Phase 9)   */
+    uint8_t  is_podcast;  /* 1 = `url` is an RSS feed (resolve + resume) */
     station_sched_t sched; /* auto-play schedule                        */
 } station_t;
 

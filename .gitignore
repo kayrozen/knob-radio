@@ -65,3 +65,4 @@ dependencies.lock
 test/host/test_pcm_link
 test/host/test_jitter_buffer
 test/host/test_schedule
+test/host/test_podcast

@@ -156,6 +156,12 @@ All behind Kconfig and compiled in CI:
   timezone) and, on Bluetooth connect or first time-sync, jumps to the preset
   whose window is active now (`schedule.c`, a pure host-tested picker). So the
   device starts on the right station for the moment — no touch needed.
+- **Podcasts** — a podcast preset's URL is an RSS feed; `podcast.c` resolves it
+  to the latest episode's audio (`podcast_parse.c`, a pure host-tested
+  `<enclosure>` extractor) and plays that. The play position is remembered per
+  feed: when the car's Bluetooth has been gone for more than 10 s, the position
+  at the drop is saved and playback **resumes there** on reconnect (an HTTP
+  Range request via `adf_pipeline`), so you pick up where you left off.
 - **BT pairing + AVRCP** — the return UART carries COBS control frames
   (`link_tx.c`): the bridge reports status/scan results, accepts pair commands,
   and relays the car's steering-wheel buttons to the S3.

@@ -27,6 +27,7 @@ typedef struct {
     char tag[STATION_TAG_MAX];
     char url[STATION_URL_MAX];
     char favicon[STATION_URL_MAX];
+    uint8_t is_podcast;
     station_sched_t sched;
 } entry_t;
 
@@ -39,8 +40,8 @@ static atomic_int s_current = 0;
 static const station_t s_defaults[] = {
     { "SomaFM Groove Salad", "MP3 stream", "http://ice1.somafm.com/groovesalad-128-mp3", "https://somafm.com/img/groovesalad.jpg", {0} },
     { "SomaFM DEF CON",      "MP3 stream", "http://ice1.somafm.com/defcon-256-mp3",      "https://somafm.com/img/defcon.jpg",      {0} },
-    { "SomaFM Drone Zone",   "AAC stream", "http://ice1.somafm.com/dronezone-128-aac",   "https://somafm.com/img/dronezone.jpg",   {0} },
-    { "BBC World (HLS)",     "HLS stream", "http://as-hls-ww-live.akamaized.net/pool_904/live/ww/bbc_world_service/bbc_world_service.isml/bbc_world_service-audio%3d96000.norewind.m3u8", "", {0} },
+    { "SomaFM Drone Zone",   "AAC stream", "http://ice1.somafm.com/dronezone-128-aac",   "https://somafm.com/img/dronezone.jpg",   0, {0} },
+    { "BBC World (HLS)",     "HLS stream", "http://as-hls-ww-live.akamaized.net/pool_904/live/ww/bbc_world_service/bbc_world_service.isml/bbc_world_service-audio%3d96000.norewind.m3u8", "", 0, {0} },
 };
 #define DEFAULT_COUNT (sizeof(s_defaults) / sizeof(s_defaults[0]))
 
@@ -60,6 +61,7 @@ static void set_entry(size_t i, const station_t *s)
     copy_str(s_store[i].tag,     sizeof(s_store[i].tag),     s->tag);
     copy_str(s_store[i].url,     sizeof(s_store[i].url),     s->url);
     copy_str(s_store[i].favicon, sizeof(s_store[i].favicon), s->favicon);
+    s_store[i].is_podcast = s->is_podcast;
     s_store[i].sched = s->sched;
 }
 
@@ -70,8 +72,9 @@ static void rebuild_view(void)
         s_view[i].name    = s_store[i].name;
         s_view[i].tag     = s_store[i].tag;
         s_view[i].url     = s_store[i].url;
-        s_view[i].favicon = s_store[i].favicon;
-        s_view[i].sched   = s_store[i].sched;
+        s_view[i].favicon    = s_store[i].favicon;
+        s_view[i].is_podcast = s_store[i].is_podcast;
+        s_view[i].sched      = s_store[i].sched;
     }
 }
 
@@ -111,6 +114,8 @@ static size_t parse_json(const char *json)
             .url     = url->valuestring,
             .favicon = cJSON_IsString(fav)  ? fav->valuestring  : "",
         };
+        const cJSON *pod = cJSON_GetObjectItem(item, "podcast");
+        s.is_podcast = cJSON_IsTrue(pod) ? 1 : 0;
         const cJSON *sch = cJSON_GetObjectItem(item, "sched");
         if (cJSON_IsObject(sch)) {
             const cJSON *mode  = cJSON_GetObjectItem(sch, "mode");
@@ -138,6 +143,7 @@ static char *serialize_json(void)
         cJSON_AddStringToObject(o, "tag",     s_store[i].tag);
         cJSON_AddStringToObject(o, "url",     s_store[i].url);
         cJSON_AddStringToObject(o, "favicon", s_store[i].favicon);
+        cJSON_AddBoolToObject(o, "podcast", s_store[i].is_podcast);
         cJSON *sch = cJSON_CreateObject();
         cJSON_AddNumberToObject(sch, "mode",  s_store[i].sched.mode);
         cJSON_AddNumberToObject(sch, "days",  s_store[i].sched.days);

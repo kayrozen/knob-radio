@@ -134,18 +134,21 @@ static bool apply_provision(const char *json)
         if (!cJSON_IsString(url) || !url->valuestring[0]) {
             continue;   /* a preset needs a URL */
         }
-        const cJSON *nm = cJSON_GetObjectItem(item, "name");
+        const cJSON *nm   = cJSON_GetObjectItem(item, "name");
+        const cJSON *kind = cJSON_GetObjectItem(item, "kind");
         strncpy(ubuf[n], url->valuestring, STATION_URL_MAX - 1);
         ubuf[n][STATION_URL_MAX - 1] = '\0';
         strncpy(nbuf[n], cJSON_IsString(nm) ? nm->valuestring : "", STATION_NAME_MAX - 1);
         nbuf[n][STATION_NAME_MAX - 1] = '\0';
         make_tag(item, tbuf[n], STATION_TAG_MAX);
 
-        entries[n].name    = nbuf[n];
-        entries[n].tag     = tbuf[n];
-        entries[n].url     = ubuf[n];
-        entries[n].favicon = "";   /* installer payload carries no logo URL */
-        entries[n].sched   = parse_schedule(item);
+        entries[n].name       = nbuf[n];
+        entries[n].tag        = tbuf[n];
+        entries[n].url        = ubuf[n];   /* RSS feed when it's a podcast */
+        entries[n].favicon    = "";        /* installer payload carries no logo URL */
+        entries[n].is_podcast = (cJSON_IsString(kind) &&
+                                 strcmp(kind->valuestring, "podcast") == 0) ? 1 : 0;
+        entries[n].sched      = parse_schedule(item);
         n++;
     }
     cJSON_Delete(root);
