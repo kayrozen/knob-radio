@@ -8,8 +8,15 @@ set(srcs
     "backpressure_rx.c"
     "audio_output.c"
     "dac_control.c"
+    "settings.c"
     "station.c")            # small, dependency-free; always compiled
 set(reqs pcm_link driver nvs_flash esp_timer json)
+
+# Phase 10: captive portal (SoftAP + DNS + HTTP config server).
+if(CONFIG_PRESET_ENABLE_PORTAL)
+    list(APPEND srcs "portal.c")
+    list(APPEND reqs esp_wifi esp_netif esp_event esp_http_server lwip)
+endif()
 
 # IMPORTANT: SRCS may depend on Kconfig, but REQUIRES may NOT — component
 # requirements are expanded BEFORE sdkconfig is loaded, so a CONFIG_* test here

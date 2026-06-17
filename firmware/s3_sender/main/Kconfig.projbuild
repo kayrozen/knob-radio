@@ -52,6 +52,15 @@ config PRESET_ENABLE_HAPTIC
         Brings up the DRV2605 LRA driver on the shared I2C bus and plays a short
         effect on station changes, boot, etc. (plan §6). Independent of the UI.
 
+config PRESET_ENABLE_PORTAL
+    bool "Enable captive portal for first-run provisioning"
+    default n
+    depends on PRESET_AUDIO_SOURCE_ADF
+    help
+        When no Wi-Fi credentials are stored, bring up a SoftAP + captive portal
+        to configure Wi-Fi, device name, output mode and the station presets
+        (plan §3). With stored credentials the device connects as normal.
+
 config PRESET_ENABLE_UI
     bool "Enable LVGL UI on the round display (JC3636W518V2)"
     default n

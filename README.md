@@ -157,9 +157,13 @@ validated prototype, behind Kconfig and compiled in CI:
   mode, info) and transient boot/Wi-Fi/pairing/error overlays (`ui.c`).
 - **Album art** — `album_art.c` downloads the station favicon over HTTPS and
   LVGL decodes the JPEG into the cover tile; works in BT and analog modes.
+- **Captive portal** — when unprovisioned, `portal.c` runs a SoftAP + DNS
+  redirect + one-page HTTP config (Wi-Fi, device name, output mode, the 5
+  presets) and persists it via `settings.c` / `station_set_playlist()`; stored
+  credentials boot straight into normal operation.
 
 ## What this prototype does NOT do (yet)
 
-Provisioning/captive portal, OTA, telemetry, a full station playlist, mic/SD,
-branding, image signing — see the product plan's phase list. No hardware
+OTA (S3 A/B + U4WDH-over-UART), BT pairing/AVRCP orchestration, telemetry,
+mic/SD, branding, image signing — see the product plan's phase list. No hardware
 re-validation is needed (pins confirmed from the schematics).

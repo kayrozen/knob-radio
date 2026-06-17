@@ -16,6 +16,7 @@
 
 #include "pcm_source.h"
 #include "audio_output.h"
+#include "settings.h"
 
 #if defined(CONFIG_PRESET_ENABLE_HAPTIC)
 #include "haptic.h"
@@ -26,6 +27,9 @@
 #include "encoder.h"
 #include "wifi_sta.h"
 #include "adf_pipeline.h"
+#if defined(CONFIG_PRESET_ENABLE_PORTAL)
+#include "portal.h"
+#endif
 #if defined(CONFIG_PRESET_ENABLE_UI)
 #include "ui.h"
 #include "album_art.h"
@@ -79,10 +83,31 @@ static void phase_e_start(void)
     /* Bring the UI up first so its transient overlay can narrate boot. */
 #if defined(CONFIG_PRESET_ENABLE_UI)
     ui_start(on_ui_nav);              /* core 0 */
-    ui_show_status(UI_STATUS_WIFI, CONFIG_PRESET_WIFI_SSID);
 #endif
 
-    if (!wifi_sta_start(CONFIG_PRESET_WIFI_SSID, CONFIG_PRESET_WIFI_PASSWORD, 0)) {
+    /* Prefer provisioned Wi-Fi credentials; fall back to the build-time ones. */
+    char ssid[SETTINGS_STR_MAX], pass[SETTINGS_STR_MAX];
+    bool have_creds = settings_get_wifi(ssid, pass);
+
+#if defined(CONFIG_PRESET_ENABLE_PORTAL)
+    if (!have_creds) {
+        /* Unconfigured: run the captive portal and stay in setup mode. */
+        char ap[33] = "";
+        portal_start(ap);
+#if defined(CONFIG_PRESET_ENABLE_UI)
+        ui_show_status(UI_STATUS_WIFI, ap);   /* "join <ap> to set up" */
+#endif
+        return;
+    }
+#endif
+
+    const char *use_ssid = have_creds ? ssid : CONFIG_PRESET_WIFI_SSID;
+    const char *use_pass = have_creds ? pass : CONFIG_PRESET_WIFI_PASSWORD;
+#if defined(CONFIG_PRESET_ENABLE_UI)
+    ui_show_status(UI_STATUS_WIFI, use_ssid);
+#endif
+
+    if (!wifi_sta_start(use_ssid, use_pass, 0)) {
         ESP_LOGE(TAG, "WiFi did not connect (will keep retrying)");
     }
 #if defined(CONFIG_PRESET_ENABLE_UI)
@@ -117,10 +142,13 @@ void app_main(void)
     haptic_init();
 #endif
 
-    audio_output_mode_t out_mode = AUDIO_OUTPUT_BT;
+    /* Output mode: provisioned value (portal) wins over the build-time default. */
+    int mode_def = 0;
 #if defined(CONFIG_PRESET_OUTPUT_ANALOG)
-    out_mode = AUDIO_OUTPUT_ANALOG;
+    mode_def = 1;
 #endif
+    audio_output_mode_t out_mode = settings_get_output_mode(mode_def)
+                                       ? AUDIO_OUTPUT_ANALOG : AUDIO_OUTPUT_BT;
     audio_output_start(out_mode);   /* BT: UART+A2DP / ANALOG: I2S->DAC */
 
 #if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)

@@ -51,6 +51,7 @@ jobs:
             printf 'CONFIG_ESP32_S3_KORVO2_V3_BOARD=y\n'
             printf 'CONFIG_PRESET_ENABLE_UI=y\n'
             printf 'CONFIG_PRESET_ENABLE_HAPTIC=y\n'
+            printf 'CONFIG_PRESET_ENABLE_PORTAL=y\n'
           } > sdkconfig.defaults.phase_e
           idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.phase_e" \
                  set-target esp32s3 build
