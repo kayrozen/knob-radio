@@ -59,6 +59,7 @@ jobs:
               printf 'CONFIG_PRESET_ENABLE_PORTAL=y\n'
               printf 'CONFIG_PRESET_ENABLE_PROVISION=y\n'
               printf 'CONFIG_PRESET_ENABLE_LAN_EDITOR=y\n'
+              printf 'CONFIG_PRESET_ENABLE_DEEPSLEEP=y\n'
             } > sdkconfig.defaults.phase_e
             idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.phase_e" \
                    set-target esp32s3 build

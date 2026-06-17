@@ -181,6 +181,17 @@ All behind Kconfig and compiled in CI:
   five presets — live-radio / podcast search, URLs, schedules — from any browser
   on the network; the device persists them and reboots. The serial installer and
   the LAN editor share one parser (`provision_apply.c`).
+- **Deep sleep (car off)** — for battery / always-on installs, once a car has
+  connected and then gone (engine off) for a grace period, `power_sleep.c` drops
+  the S3 — the big consumer (WiFi + PSRAM + display + ADF) — into deep sleep.
+  GPIO48 (the U4WDH→S3 link) isn't an RTC pin and deep sleep has no UART wake, so
+  the S3 wakes on an RTC timer every few seconds, asks the U4WDH `BT_STATUS_REQ`,
+  and either resumes (full reboot, restoring the saved podcast position) or
+  sleeps again. The U4WDH stays awake re-discovering the car, so it reconnects on
+  its own when the engine starts. A device that has never seen a car (sitting at
+  home for LAN-editor setup) stays awake and reachable; encoder/touch activity
+  pushes the countdown back. Thresholds are Kconfig (`PRESET_SLEEP_AFTER_S` /
+  `PRESET_SLEEP_POLL_S`).
 
 ### Roadmap
 

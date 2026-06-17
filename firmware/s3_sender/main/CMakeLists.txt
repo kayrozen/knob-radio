@@ -70,6 +70,12 @@ if(CONFIG_PRESET_AUDIO_SOURCE_ADF)
     list(APPEND srcs "wifi_sta.c" "encoder.c" "adf_pipeline.c" "time_sync.c" "podcast.c")
 endif()
 
+# Deep sleep when the car (Bluetooth) is gone. esp_sleep/esp_timer are base IDF,
+# already available; no extra REQUIRES.
+if(CONFIG_PRESET_ENABLE_DEEPSLEEP)
+    list(APPEND srcs "power_sleep.c")
+endif()
+
 # Phase E requirements: the ESP-ADF components only exist when ADF_PATH is
 # exported — the same gate the top-level CMakeLists uses to register them.
 # esp_wifi/esp_netif/esp_event are base IDF but only the ADF build needs them,

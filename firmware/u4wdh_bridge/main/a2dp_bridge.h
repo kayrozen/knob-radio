@@ -51,6 +51,11 @@ void a2dp_bridge_set_metadata(const char *title);
 void a2dp_bridge_start_scan(void);
 void a2dp_bridge_pair(const uint8_t mac[6]);
 
+/* Emit the current connection state as a BT_STATUS frame now (answers the S3's
+ * BT_STATUS_REQ — e.g. when it wakes from deep sleep and needs to know whether
+ * the car is back without waiting for the next state change). */
+void a2dp_bridge_report_status(void);
+
 #ifdef __cplusplus
 }
 #endif

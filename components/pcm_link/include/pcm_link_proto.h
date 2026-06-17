@@ -119,6 +119,7 @@ typedef enum {
     PCM_LINK_CTRL_BT_SCAN_RESULT = 0x02, /* U4 -> S3: one sink (mac+name)     */
     PCM_LINK_CTRL_BT_PAIR        = 0x03, /* S3 -> U4: pair/connect <mac[6]>   */
     PCM_LINK_CTRL_BT_STATUS      = 0x04, /* U4 -> S3: <pcm_link_bt_state_t>   */
+    PCM_LINK_CTRL_BT_STATUS_REQ  = 0x05, /* S3 -> U4: report BT status now    */
     /* Playback / metadata (AVRCP relay). */
     PCM_LINK_CTRL_AVRCP_EVENT    = 0x10, /* U4 -> S3: steering-wheel <cmd>    */
     PCM_LINK_CTRL_PLAYBACK_STATE = 0x11, /* S3 -> U4: play/pause/stop <state> */

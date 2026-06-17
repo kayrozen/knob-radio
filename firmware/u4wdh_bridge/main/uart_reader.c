@@ -63,6 +63,10 @@ static void on_control(uart_reader_ctx_t *ctx, const pcm_frame_t *frame)
             a2dp_bridge_pair(msg.args);
         }
         break;
+    case PCM_LINK_CTRL_BT_STATUS_REQ:
+        /* S3 woke and is asking whether the car is back. */
+        a2dp_bridge_report_status();
+        break;
     default:
         ESP_LOGI(TAG, "control op=0x%02x args=%u", msg.op, (unsigned)msg.arg_len);
         break;

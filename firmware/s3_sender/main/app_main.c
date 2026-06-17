@@ -45,6 +45,9 @@
 #if defined(CONFIG_PRESET_ENABLE_LAN_EDITOR)
 #include "lan_editor.h"
 #endif
+#if defined(CONFIG_PRESET_ENABLE_DEEPSLEEP)
+#include "power_sleep.h"
+#endif
 #if defined(CONFIG_PRESET_ENABLE_UI)
 #include "ui.h"
 #include "album_art.h"
@@ -163,6 +166,9 @@ static void on_encoder(int index)
 #if defined(CONFIG_PRESET_ENABLE_HAPTIC)
     haptic_play(HAPTIC_CLICK);
 #endif
+#if defined(CONFIG_PRESET_ENABLE_DEEPSLEEP)
+    power_sleep_kick();   /* hand on the knob: don't sleep out from under them */
+#endif
     apply_station(index, true);
 }
 
@@ -173,6 +179,9 @@ static void on_ui_nav(int delta)
 {
 #if defined(CONFIG_PRESET_ENABLE_HAPTIC)
     haptic_play(HAPTIC_TICK);
+#endif
+#if defined(CONFIG_PRESET_ENABLE_DEEPSLEEP)
+    power_sleep_kick();
 #endif
     apply_station(station_advance(delta), true);
 }
@@ -193,6 +202,9 @@ static void on_avrcp(uint8_t cmd)
  * resume-after-10s rule, and the UI overlay. */
 static void on_bt_status(uint8_t state)
 {
+#if defined(CONFIG_PRESET_ENABLE_DEEPSLEEP)
+    power_sleep_on_bt(state);   /* drive the no-car deep-sleep countdown */
+#endif
     if (state == PCM_LINK_BT_CONNECTED) {
         if (s_disc_timer) {
             esp_timer_stop(s_disc_timer);   /* cancel the pending 10 s window */
@@ -272,6 +284,12 @@ static void phase_e_start(void)
     album_art_start();
 #endif
 
+    /* Online with a car expected: start the no-car deep-sleep countdown (does
+     * not run in portal/setup mode — only on the normal credentialed path). */
+#if defined(CONFIG_PRESET_ENABLE_DEEPSLEEP)
+    power_sleep_init();
+#endif
+
     /* Wall-clock time -> when it first syncs, jump to the scheduled preset. */
     time_sync_start(scheduler_apply);
 
@@ -315,6 +333,13 @@ void app_main(void)
     }
 
     ESP_LOGI(TAG, "hello S3 — PCM -> COBS/UART forward link");
+
+    /* If this boot is an RTC-timer wake from a car-off deep sleep, poll the
+     * U4WDH and either resume (full reboot) or sleep again — before any of the
+     * heavy/visible init below (so a poll is silent and cheap). */
+#if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF) && defined(CONFIG_PRESET_ENABLE_DEEPSLEEP)
+    power_sleep_boot_hook();
+#endif
 
 #if defined(CONFIG_PRESET_ENABLE_PROVISION)
     /* Listen for the browser installer's PROVISION line before anything else. */
