@@ -4,6 +4,9 @@
 #include "uart_reader.h"
 #include "pcm_link_proto.h"
 #include "pcm_link_rx.h"
+#include "control_msg.h"
+#include "dac_mute.h"
+#include "a2dp_bridge.h"
 
 #include "driver/uart.h"
 #include "driver/gpio.h"
@@ -23,13 +26,65 @@ static const char *TAG = "uart_rx";
 static uint8_t s_rx_scratch[PCM_LINK_FRAME_MAX_WIRE];
 static uint8_t s_silence[PCM_LINK_PAYLOAD_BYTES];
 
-/* Called by the reassembler for each CRC-valid frame. */
+/* Dispatch a received control-plane frame. Phase 1 only decodes and logs the
+ * opcode; the per-opcode behaviour (BT pairing, AVRCP relay, OTA, version
+ * handshake) lands in its later phase. */
+static void on_control(uart_reader_ctx_t *ctx, const pcm_frame_t *frame)
+{
+    ctx->ctrl_frames++;
+
+    pcm_link_ctrl_msg_t msg;
+    if (!pcm_link_ctrl_parse(frame, &msg)) {
+        return;
+    }
+
+    switch (msg.op) {
+    case PCM_LINK_CTRL_DAC_MUTE:
+        /* analog mode: the S3 owns the DAC and asks us to (un)mute XSMT. */
+        if (msg.arg_len >= 1) {
+            dac_mute_set(msg.args[0] != 0);
+        }
+        break;
+    case PCM_LINK_CTRL_METADATA: {
+        /* now-playing title to relay to the car over AVRCP. */
+        char title[64];
+        size_t n = msg.arg_len < sizeof(title) - 1 ? msg.arg_len
+                                                    : sizeof(title) - 1;
+        memcpy(title, msg.args, n);
+        title[n] = '\0';
+        a2dp_bridge_set_metadata(title);
+        break;
+    }
+    case PCM_LINK_CTRL_BT_SCAN_START:
+        a2dp_bridge_start_scan();
+        break;
+    case PCM_LINK_CTRL_BT_PAIR:
+        if (msg.arg_len >= 6) {
+            a2dp_bridge_pair(msg.args);
+        }
+        break;
+    default:
+        ESP_LOGI(TAG, "control op=0x%02x args=%u", msg.op, (unsigned)msg.arg_len);
+        break;
+    }
+}
+
+/* Called by the reassembler for each CRC-valid frame; dispatch on type. */
 static void on_frame(const pcm_frame_t *frame, void *user)
 {
     uart_reader_ctx_t *ctx = (uart_reader_ctx_t *)user;
 
-    /* Detect lost frames via sequence continuity and insert equivalent
-     * silence so audio timing does not slip. */
+    if (frame->type != PCM_LINK_FRAME_AUDIO) {
+        if (frame->type == PCM_LINK_FRAME_CONTROL) {
+            on_control(ctx, frame);
+        }
+        /* OTA_DATA / ART_DATA: handled in their later phases. */
+        return;
+    }
+
+    /* Detect lost AUDIO frames via sequence continuity and insert equivalent
+     * silence so audio timing does not slip. Sequence tracking is per audio
+     * stream, so interleaved control frames never look like an audio gap. */
     if (ctx->have_seq) {
         uint8_t expected = (uint8_t)(ctx->last_seq + 1);
         uint8_t gap = (uint8_t)(frame->seq - expected);
@@ -71,10 +126,11 @@ static void uart_rx_task(void *arg)
             last_log = xTaskGetTickCount();
             ESP_LOGI(TAG,
                      "ok=%lu crc=%lu cobs=%lu len=%lu ovf=%lu | lost=%lu "
-                     "jb=%lums under=%lu over=%lu",
+                     "ctrl=%lu jb=%lums under=%lu over=%lu",
                      (unsigned long)rx.frames_ok, (unsigned long)rx.err_crc,
                      (unsigned long)rx.err_cobs, (unsigned long)rx.err_length,
                      (unsigned long)rx.overflows, (unsigned long)ctx->lost_frames,
+                     (unsigned long)ctx->ctrl_frames,
                      (unsigned long)jb_filled_ms(ctx->jb),
                      (unsigned long)ctx->jb->underruns,
                      (unsigned long)ctx->jb->overruns);

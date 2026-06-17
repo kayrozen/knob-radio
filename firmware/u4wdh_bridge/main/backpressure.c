@@ -3,15 +3,14 @@
  */
 #include "backpressure.h"
 #include "pcm_link_proto.h"
+#include "link_tx.h"
 
-#include "driver/uart.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 
 static const char *TAG = "backpressure";
 
-#define RETURN_UART_NUM   UART_NUM_1   /* shared full-duplex UART */
 #define POLL_PERIOD_MS    100
 
 static void backpressure_task(void *arg)
@@ -42,9 +41,10 @@ static void backpressure_task(void *arg)
         static int heartbeat = 0;
         if (cmd != last || (++heartbeat % 10) == 0) {
             uint8_t b = (uint8_t)cmd;
-            uart_write_bytes(RETURN_UART_NUM, &b, 1);
+            /* Flow control is now a CONTROL frame on the unified return link. */
+            link_tx_send_control(PCM_LINK_CTRL_FLOW, &b, 1);
             if (cmd != last) {
-                ESP_LOGD(TAG, "jb=%lums -> cmd 0x%02x", (unsigned long)ms, b);
+                ESP_LOGD(TAG, "jb=%lums -> flow 0x%02x", (unsigned long)ms, b);
             }
             last = cmd;
         }

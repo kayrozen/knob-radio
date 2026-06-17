@@ -17,11 +17,14 @@ extern "C" {
 typedef struct {
     jitter_buffer_t *jb;
 
-    /* Sequence tracking. */
+    /* Audio sequence tracking (AUDIO frames only). */
     uint8_t  last_seq;
     bool     have_seq;
     uint32_t lost_frames;   /* gaps in seq */
     uint32_t silence_bytes; /* zero-fill inserted for lost frames */
+
+    /* Control plane (PCM_LINK_FRAME_CONTROL frames seen on the forward link). */
+    uint32_t ctrl_frames;
 } uart_reader_ctx_t;
 
 /* Configure UART1 RX and start the receive task pinned to APP core (core 1). */

@@ -19,6 +19,7 @@ extern "C" {
 
 /* In-memory logical frame. NEVER transmitted as-is (see plan §6.2). */
 typedef struct {
+    uint8_t  type;                            /* pcm_link_frame_type_t */
     uint8_t  seq;
     uint16_t length;                          /* valid bytes in payload */
     uint8_t  payload[PCM_LINK_PAYLOAD_BYTES];
@@ -29,16 +30,21 @@ typedef struct {
 uint8_t pcm_crc8(const uint8_t *data, size_t len);
 
 /*
- * Serialize a logical frame into the wire buffer: lays out seq/length/payload,
- * computes the CRC-8, COBS-encodes the whole thing, and appends the 0x00
- * delimiter.
+ * Serialize a typed logical frame into the wire buffer: lays out
+ * type/seq/length/payload, computes the CRC-8, COBS-encodes the whole thing,
+ * and appends the 0x00 delimiter.
  *
+ * `type` is a pcm_link_frame_type_t.
  * `wire` must hold at least PCM_LINK_FRAME_MAX_WIRE bytes.
  * `payload_len` must be <= PCM_LINK_PAYLOAD_BYTES.
  *
  * Returns the number of bytes written to `wire` (including the delimiter),
  * or 0 on bad arguments.
  */
+size_t pcm_frame_build_typed(uint8_t type, uint8_t seq, const uint8_t *payload,
+                             uint16_t payload_len, uint8_t *wire);
+
+/* Convenience wrapper: build a PCM_LINK_FRAME_AUDIO frame (the hot path). */
 size_t pcm_frame_build(uint8_t seq, const uint8_t *payload, uint16_t payload_len,
                        uint8_t *wire);
 

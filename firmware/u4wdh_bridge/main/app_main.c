@@ -19,6 +19,7 @@
 #include "uart_reader.h"
 #include "backpressure.h"
 #include "a2dp_bridge.h"
+#include "dac_mute.h"
 
 static const char *TAG = "u4wdh_main";
 
@@ -76,6 +77,9 @@ void app_main(void)
     ESP_LOGI(TAG, "hello U4WDH — PCM/UART -> A2DP bridge");
     ESP_LOGI(TAG, "internal DRAM free at boot: %u bytes",
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+
+    /* DAC starts muted; the S3 un-mutes over the control plane in analog mode. */
+    dac_mute_init();
 
     /* Bring up the BT stack FIRST so it claims its (large) static + dynamic
      * DRAM before we size the jitter buffer from what survives. */

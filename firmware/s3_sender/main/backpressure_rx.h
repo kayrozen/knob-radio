@@ -1,16 +1,28 @@
 /*
- * backpressure_rx.h — listen to the U4WDH's flow-control commands (S3 side).
+ * backpressure_rx.h — return-channel listener (S3 side).
  *
- * Reads single-byte commands on the return UART (GPIO48) and exposes a rate
- * multiplier the UART writer applies to its frame pacing, nudging the producer
- * faster/slower to hold the bridge's jitter buffer near target.
+ * The return UART (GPIO48) now carries COBS CONTROL frames, not raw bytes: this
+ * reassembles them and dispatches by opcode. FLOW drives the pacing multiplier
+ * the UART writer applies; AVRCP button events and BT status are handed to
+ * registered callbacks (the app maps them to station nav / UI).
  */
 #ifndef BACKPRESSURE_RX_H
 #define BACKPRESSURE_RX_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Steering-wheel (AVRCP) button relayed from the car: a pcm_link_avrcp_cmd_t. */
+typedef void (*return_avrcp_cb_t)(uint8_t cmd);
+/* Bluetooth connection state from the bridge: a pcm_link_bt_state_t. */
+typedef void (*return_bt_status_cb_t)(uint8_t state);
+
+/* Register handlers for non-flow control messages (either may be NULL). */
+void backpressure_rx_set_handlers(return_avrcp_cb_t avrcp,
+                                  return_bt_status_cb_t bt_status);
 
 /* Start the return-channel listener task. */
 void backpressure_rx_start(void);

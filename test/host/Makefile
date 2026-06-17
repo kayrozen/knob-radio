@@ -9,7 +9,8 @@ CFLAGS   ?= -std=c11 -O2 -Wall -Wextra -Werror -I$(COMPONENT)/include
 LINK_SRCS := test_pcm_link.c \
              $(COMPONENT)/src/cobs.c \
              $(COMPONENT)/src/pcm_frame.c \
-             $(COMPONENT)/src/pcm_link_rx.c
+             $(COMPONENT)/src/pcm_link_rx.c \
+             $(COMPONENT)/src/control_msg.c
 
 JB_SRCS   := test_jitter_buffer.c \
              $(BRIDGE)/jitter_buffer.c

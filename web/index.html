@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preset Radio — Installer</title>
+  <!-- ESP Web Tools: flash the board from the browser over Web Serial. -->
+  <script type="module"
+          src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: system-ui, sans-serif; background:#111; color:#eee;
+           max-width:640px; margin:0 auto; padding:24px; line-height:1.5; }
+    h1 { color:#E5734A; }
+    h2 { margin-top:32px; }
+    .card { background:#1b1b1b; border:1px solid #333; border-radius:12px;
+            padding:20px; margin:16px 0; }
+    .step { color:#aaa; font-size:0.9em; }
+    a { color:#E5734A; }
+    code { background:#000; padding:1px 5px; border-radius:4px; }
+    esp-web-install-button { --esp-tools-button-color:#fff;
+                             --esp-tools-button-text-color:#111; }
+  </style>
+</head>
+<body>
+  <h1>Preset Radio installer</h1>
+  <p>Flash the dual-chip board straight from this page over USB — no toolchain
+     needed. Use a Chromium-based browser (Chrome/Edge) on desktop.</p>
+
+  <p class="step"><strong>The board has two USB-C ports</strong>, one per chip.
+     Flash each chip from <em>its own</em> port: connect the port, click its
+     button, pick the serial device, and let it install. Do the bridge first.</p>
+
+  <div class="card">
+    <h2>1 · Bridge (ESP32-U4WDH)</h2>
+    <p class="step">The Bluetooth/A2DP half. Connect the <em>bridge</em> USB-C
+       port.</p>
+    <esp-web-install-button manifest="./manifest-u4wdh.json"></esp-web-install-button>
+  </div>
+
+  <div class="card">
+    <h2>2 · Main (ESP32-S3)</h2>
+    <p class="step">WiFi, codecs, display and UI. Connect the <em>main</em>
+       USB-C port.</p>
+    <esp-web-install-button manifest="./manifest-s3.json"></esp-web-install-button>
+  </div>
+
+  <h2>After flashing</h2>
+  <p class="step">On first boot the main chip starts a Wi-Fi setup hotspot
+     (named <code>Preset Radio</code>). Join it, and the captive portal opens to
+     configure Wi-Fi, the output mode and your station presets.</p>
+
+  <p class="step">Build: <code id="ver">dev</code> ·
+     <a href="https://github.com/kayrozen/knob-radio">source</a></p>
+  <script>
+    fetch('./manifest-s3.json').then(r => r.json())
+      .then(m => { document.getElementById('ver').textContent = m.version; })
+      .catch(() => {});
+  </script>
+</body>
+</html>

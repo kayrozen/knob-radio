@@ -15,32 +15,91 @@
 #include "sdkconfig.h"
 
 #include "pcm_source.h"
-#include "uart_writer.h"
+#include "audio_output.h"
 #include "backpressure_rx.h"
+#include "pcm_link_proto.h"
+#include "settings.h"
+
+#if defined(CONFIG_PRESET_ENABLE_HAPTIC)
+#include "haptic.h"
+#endif
 
 #if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
 #include "station.h"
 #include "encoder.h"
 #include "wifi_sta.h"
 #include "adf_pipeline.h"
+#if defined(CONFIG_PRESET_ENABLE_PORTAL)
+#include "portal.h"
+#endif
 #if defined(CONFIG_PRESET_ENABLE_UI)
 #include "ui.h"
+#include "album_art.h"
 #endif
 #endif
 
 static const char *TAG = "s3_main";
 
 #if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
-/* Encoder callback: re-point the pipeline at the new station and refresh UI. */
-static void on_station_change(int index)
+/* Apply a new station: re-point the pipeline and refresh the UI. Shared by the
+ * encoder and the touch buttons (the haptic differs per source — see below). */
+static void apply_station(int index)
 {
     const station_t *st = station_get(index);
     if (!st) {
         return;
     }
     adf_pipeline_set_url(st->url);   /* PCM pauses briefly; A2DP link survives */
+    audio_output_send_metadata(st->name);  /* BT: relay to the car via AVRCP */
 #if defined(CONFIG_PRESET_ENABLE_UI)
     ui_set_station(index, st->name);
+    album_art_load(st->favicon);     /* fetch + show the station logo */
+#endif
+}
+
+/* Encoder detent -> a crisp click (plan §6.2: hand is on the knob). */
+static void on_encoder(int index)
+{
+#if defined(CONFIG_PRESET_ENABLE_HAPTIC)
+    haptic_play(HAPTIC_CLICK);
+#endif
+    apply_station(index);
+}
+
+#if defined(CONFIG_PRESET_ENABLE_UI)
+/* UI touch-button callback: advance the station like an encoder detent, with a
+ * lighter tap. The encoder advances internally; the buttons hand us a delta. */
+static void on_ui_nav(int delta)
+{
+#if defined(CONFIG_PRESET_ENABLE_HAPTIC)
+    haptic_play(HAPTIC_TICK);
+#endif
+    apply_station(station_advance(delta));
+}
+#endif
+
+/* AVRCP (steering-wheel) button relayed from the car. Per plan §6.2 there is NO
+ * haptic — the hand is on the wheel, not the knob. */
+static void on_avrcp(uint8_t cmd)
+{
+    switch (cmd) {
+    case PCM_LINK_AVRCP_NEXT: apply_station(station_advance(1));  break;
+    case PCM_LINK_AVRCP_PREV: apply_station(station_advance(-1)); break;
+    default: break;   /* play/pause: transport control is a later step */
+    }
+}
+
+/* Bluetooth connection state from the bridge -> UI overlay. */
+static void on_bt_status(uint8_t state)
+{
+#if defined(CONFIG_PRESET_ENABLE_UI)
+    if (state == PCM_LINK_BT_CONNECTED) {
+        ui_show_status(UI_STATUS_NONE, NULL);
+    } else if (state == PCM_LINK_BT_CONNECTING) {
+        ui_show_status(UI_STATUS_PAIRING, NULL);
+    }
+#else
+    (void)state;
 #endif
 }
 
@@ -48,18 +107,49 @@ static void phase_e_start(void)
 {
     station_init();
 
-    if (!wifi_sta_start(CONFIG_PRESET_WIFI_SSID, CONFIG_PRESET_WIFI_PASSWORD, 0)) {
-        ESP_LOGE(TAG, "WiFi did not connect");
+    /* Bring the UI up first so its transient overlay can narrate boot. */
+#if defined(CONFIG_PRESET_ENABLE_UI)
+    ui_start(on_ui_nav);              /* core 0 */
+#endif
+
+    /* Prefer provisioned Wi-Fi credentials; fall back to the build-time ones. */
+    char ssid[SETTINGS_STR_MAX], pass[SETTINGS_STR_MAX];
+    bool have_creds = settings_get_wifi(ssid, pass);
+
+#if defined(CONFIG_PRESET_ENABLE_PORTAL)
+    if (!have_creds) {
+        /* Unconfigured: run the captive portal and stay in setup mode. */
+        char ap[33] = "";
+        portal_start(ap);
+#if defined(CONFIG_PRESET_ENABLE_UI)
+        ui_show_status(UI_STATUS_WIFI, ap);   /* "join <ap> to set up" */
+#endif
+        return;
     }
+#endif
+
+    const char *use_ssid = have_creds ? ssid : CONFIG_PRESET_WIFI_SSID;
+    const char *use_pass = have_creds ? pass : CONFIG_PRESET_WIFI_PASSWORD;
+#if defined(CONFIG_PRESET_ENABLE_UI)
+    ui_show_status(UI_STATUS_WIFI, use_ssid);
+#endif
+
+    if (!wifi_sta_start(use_ssid, use_pass, 0)) {
+        ESP_LOGE(TAG, "WiFi did not connect (will keep retrying)");
+    }
+#if defined(CONFIG_PRESET_ENABLE_UI)
+    ui_show_status(UI_STATUS_NONE, NULL);   /* reveal the preset screen */
+    album_art_start();
+#endif
 
     const station_t *st = station_current_station();
     adf_pipeline_start(st->url);
-
 #if defined(CONFIG_PRESET_ENABLE_UI)
-    ui_start();                       /* core 0 */
+    album_art_load(st->favicon);            /* logo for the initial station */
 #endif
+
     encoder_start(CONFIG_PRESET_ENC_GPIO_A, CONFIG_PRESET_ENC_GPIO_B,
-                  on_station_change); /* core 0 */
+                  on_encoder);        /* core 0 */
 }
 #endif
 
@@ -74,11 +164,30 @@ void app_main(void)
     ESP_LOGI(TAG, "hello S3 — PCM -> COBS/UART forward link");
 
     pcm_source_init();
-    backpressure_rx_start();   /* listen before we start pacing */
-    uart_writer_start();       /* core 1: drains pcm_source -> COBS -> UART */
+
+#if defined(CONFIG_PRESET_ENABLE_HAPTIC)
+    haptic_init();
+#endif
+
+    /* Output mode: provisioned value (portal) wins over the build-time default. */
+    int mode_def = 0;
+#if defined(CONFIG_PRESET_OUTPUT_ANALOG)
+    mode_def = 1;
+#endif
+    audio_output_mode_t out_mode = settings_get_output_mode(mode_def)
+                                       ? AUDIO_OUTPUT_ANALOG : AUDIO_OUTPUT_BT;
+#if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
+    /* Route the bridge's AVRCP + BT-status frames before the listener starts. */
+    backpressure_rx_set_handlers(on_avrcp, on_bt_status);
+#endif
+    audio_output_start(out_mode);   /* BT: UART+A2DP / ANALOG: I2S->DAC */
 
 #if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
     phase_e_start();
+#endif
+
+#if defined(CONFIG_PRESET_ENABLE_HAPTIC)
+    haptic_play(HAPTIC_READY);
 #endif
 
     ESP_LOGI(TAG, "free heap: %lu bytes", (unsigned long)esp_get_free_heap_size());

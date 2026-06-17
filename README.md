@@ -36,16 +36,29 @@ A logical frame is serialized little-endian, then COBS-encoded, then terminated
 by a single `0x00`:
 
 ```
-[ seq(1) | length(2 LE) | payload(length) | crc8(1) ]  -- serialize -->  raw bytes
+[ type(1) | seq(1) | length(2 LE) | payload(length) | crc8(1) ]  -- serialize -->  raw bytes
 raw bytes  -- COBS encode -->  body with NO 0x00  -->  append 0x00 delimiter
 ```
 
 COBS guarantees `0x00` never appears inside the body, so it is an unambiguous,
 always-resyncable frame boundary — exactly what a 3 Mbps link without hardware
-flow control needs. Measured overhead for a 512-byte payload: **~1.6%** (see the
+flow control needs. Measured overhead for a 512-byte payload: **~1.8%** (see the
 host test output). See [`components/pcm_link/include/pcm_link_proto.h`](components/pcm_link/include/pcm_link_proto.h)
 for all constants and the validated pinout (S3 GPIO38→U4WDH GPIO18 forward,
 U4WDH GPIO23→S3 GPIO48 return).
+
+### Control plane (the `type` byte)
+
+The leading `type` byte multiplexes the audio stream with a bidirectional
+control plane (and the OTA / cover-art transfers) over the one validated link —
+the receiver dispatches on it (`pcm_link_frame_type_t`: `AUDIO`/`CONTROL`/
+`OTA_DATA`/`ART_DATA`). A `CONTROL` frame carries `[opcode | args…]`
+([`control_msg.h`](components/pcm_link/include/control_msg.h)) covering BT
+pairing/status, the AVRCP relay, now-playing metadata, flow, the version
+handshake and OTA orchestration (plan §1.3). Audio sequence tracking is
+per-stream, so interleaved control frames never look like an audio gap. The
+codec and the audio/control dispatch are host-tested; the per-opcode behaviour
+lands in its later phase.
 
 ## Build & test
 
@@ -53,6 +66,19 @@ U4WDH GPIO23→S3 GPIO48 return).
 ```sh
 make -C test/host test
 ```
+
+### Install from the browser (no toolchain)
+
+The CI pipeline's delivery stage (`.github/workflows/install-page.yml`) builds
+flashable images for both chips, wraps them in ESP Web Tools manifests, and
+publishes a web installer (`web/index.html`) — uploaded as an artifact on every
+run and deployed to GitHub Pages on the default branch / tags. The board has two
+USB-C ports (one per chip); the page flashes each from its own port. After
+flashing, the main chip starts the Wi-Fi setup hotspot (the captive portal).
+
+The pipeline has three independent stages: **ci.yml** (fast host tests + plain
+IDF compile), **phase-e.yml** (full ESP-ADF + UI compile-check), and
+**install-page.yml** (build + merge + publish the installer).
 
 ### Firmware (needs ESP-IDF v5.x)
 ```sh
@@ -109,15 +135,54 @@ cd firmware/u4wdh_bridge && idf.py build -DA2DP_TARGET_NAME='"My Car"'
   audio/UART work on core 1: a dark-themed preset screen (outer ring, per-station
   dots, cover tile, station name/type, a prev/play/next control bar and a
   wifi/bt/battery status row) whose name/type/active-dot track the encoder. The
-  Phase-E CI job (`.github/workflows/phase-e.yml`) compiles the full ESP-ADF
-  pipeline **and** the LVGL UI (`ui.c` + the `lvgl`/`esp_lcd_st77916` managed
-  components); only the on-hardware panel bring-up (QSPI pins, touch) is out of
-  CI scope.
+  panel (`display_st77916.c`, QSPI + PWM backlight) and the CST816S touch
+  (`touch_cst816.c`) share the S3's mutex-guarded I2C bus (`i2c_bus.c`) with the
+  Phase-6 haptic; the control-bar buttons route through the same station-change
+  path as the encoder. Pins are the schematic-confirmed values in `board_pins.h`.
+  The Phase-E CI job (`.github/workflows/phase-e.yml`) compiles the full ESP-ADF
+  pipeline **and** the LVGL UI + touch (`ui.c`/`touch_cst816.c` + the
+  `lvgl`/`esp_lcd_st77916`/`esp_lcd_touch_cst816s` managed components); only the
+  on-hardware panel/touch bring-up is out of CI scope.
 - **Phase F (real car)** — field test; WiFi auto-reconnect (`wifi_sta.c`) covers
   the tunnel-drop/recovery case. See the plan.
 
-## What this prototype does NOT do
+## Product build-out (on top of the prototype)
 
-Provisioning/OTA/telemetry, a full station playlist, haptics/mic/SD, branding,
-the analog PCM5100 DAC (output is Bluetooth), or any hardware re-validation
-(already confirmed from the schematics). See plan §9.
+Work toward the full product (dual-chip, plan in the issue) layered on the
+validated prototype, behind Kconfig and compiled in CI:
+
+- **Control plane** — the COBS frame gained a `type` byte (`AUDIO`/`CONTROL`/
+  `OTA_DATA`/`ART_DATA`) and a CONTROL message codec (`control_msg.c`), so the
+  one link multiplexes audio with control. Host-tested.
+- **Display + touch** — `display_st77916.c` (QSPI + PWM backlight dimming) and
+  `touch_cst816.c` (CST816S) over the shared, mutex-guarded I2C bus
+  (`i2c_bus.c`); pins in `board_pins.h` (from the schematic).
+- **Haptic** — `haptic.c` (DRV2605 LRA) on the same I2C bus: a click on encoder
+  detents, a lighter tap on touch, plus boot/error effects.
+- **Analog output** — `audio_output.c` routes either Bluetooth (UART→U4WDH→A2DP)
+  or **analog** (`dac_control.c`: S3 I2S → PCM5100, CH445P source switch). The
+  DAC's XSMT mute lives on the U4WDH, so analog mode un-mutes it over the
+  control plane (`dac_mute.c` + `PCM_LINK_CTRL_DAC_MUTE`).
+- **Playlist + metadata** — the station list is an NVS-backed playlist with a
+  remembered index (`station.c`); a station change relays the now-playing title
+  to the U4WDH over the control plane (`PCM_LINK_CTRL_METADATA`).
+- **UI screens** — preset screen, a settings screen (brightness→NVS, output
+  mode, info) and transient boot/Wi-Fi/pairing/error overlays (`ui.c`).
+- **Album art** — `album_art.c` downloads the station favicon over HTTPS and
+  LVGL decodes the JPEG into the cover tile; works in BT and analog modes.
+- **Captive portal** — when unprovisioned, `portal.c` runs a SoftAP + DNS
+  redirect + one-page HTTP config (Wi-Fi, device name, output mode, the 5
+  presets) and persists it via `settings.c` / `station_set_playlist()`; stored
+  credentials boot straight into normal operation.
+- **BT pairing + AVRCP relay** — the return UART now carries COBS control frames
+  (`link_tx.c` / the reworked `backpressure_rx.c`): the bridge reports BT status
+  and scan results and accepts pair commands, and its AVRCP target relays the
+  car's steering-wheel buttons to the S3 (`PCM_LINK_CTRL_BT_*` / `AVRCP_EVENT`).
+  Flow control moved onto the same framed channel.
+
+## What this prototype does NOT do (yet)
+
+OTA (S3 A/B + U4WDH-over-UART), AVRCP cover-art / full now-playing metadata to
+the car, telemetry, mic/SD, branding, image signing — see the product plan's
+phase list. No hardware re-validation is needed (pins confirmed from the
+schematics).
