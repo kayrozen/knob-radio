@@ -255,7 +255,7 @@ static esp_err_t h_api_wifi(httpd_req_t *req)
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "bad form");
         return ESP_FAIL;
     }
-    char ssid[SETTINGS_STR_MAX], pass[SETTINGS_STR_MAX];
+    char ssid[SETTINGS_STR_MAX] = {0}, pass[SETTINGS_STR_MAX] = {0};
     if (!form_field(body, "ssid", ssid, sizeof(ssid)) || !ssid[0]) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "no ssid");
         return ESP_FAIL;

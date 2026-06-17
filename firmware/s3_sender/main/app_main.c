@@ -211,8 +211,11 @@ static void scheduler_apply(void)
         return;
     }
     size_t n = station_count();
+    if (n > STATION_MAX) {
+        n = STATION_MAX;                  /* never index scheds[] out of bounds */
+    }
     station_sched_t scheds[STATION_MAX];
-    for (size_t i = 0; i < n && i < STATION_MAX; i++) {
+    for (size_t i = 0; i < n; i++) {
         const station_t *s = station_get((int)i);
         scheds[i] = s ? s->sched : (station_sched_t){ 0 };
     }
