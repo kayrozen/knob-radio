@@ -67,6 +67,19 @@ lands in its later phase.
 make -C test/host test
 ```
 
+### Install from the browser (no toolchain)
+
+The CI pipeline's delivery stage (`.github/workflows/install-page.yml`) builds
+flashable images for both chips, wraps them in ESP Web Tools manifests, and
+publishes a web installer (`web/index.html`) — uploaded as an artifact on every
+run and deployed to GitHub Pages on the default branch / tags. The board has two
+USB-C ports (one per chip); the page flashes each from its own port. After
+flashing, the main chip starts the Wi-Fi setup hotspot (the captive portal).
+
+The pipeline has three independent stages: **ci.yml** (fast host tests + plain
+IDF compile), **phase-e.yml** (full ESP-ADF + UI compile-check), and
+**install-page.yml** (build + merge + publish the installer).
+
 ### Firmware (needs ESP-IDF v5.x)
 ```sh
 # S3 sender — default TONE build (phases B-D, no WiFi)
