@@ -79,12 +79,21 @@ static bool station_playspec(int index, char *url, size_t cap, uint32_t *offset)
 }
 
 /* Apply a new station: resolve it, re-point the pipeline (resuming a podcast),
- * relay metadata, and refresh the UI. */
-static void apply_station(int index)
+ * relay metadata, and refresh the UI. When `save_outgoing` is set and the
+ * station we are leaving is a podcast, its current position is saved first, so
+ * coming back to it resumes where you were. (The disconnect-resume re-play
+ * passes false, so it does not overwrite the position saved at the drop.) */
+static void apply_station(int index, bool save_outgoing)
 {
     const station_t *st = station_get(index);
     if (!st) {
         return;
+    }
+    if (save_outgoing && s_playing_idx >= 0 && s_playing_episode[0]) {
+        const station_t *prev = station_get(s_playing_idx);
+        if (prev && prev->is_podcast) {
+            podcast_pos_set(prev->url, s_playing_episode, adf_pipeline_byte_pos());
+        }
     }
     char url[STATION_URL_MAX];
     uint32_t offset = 0;
@@ -139,7 +148,7 @@ static void scheduler_apply(void)
     if (idx >= 0 && idx != station_current()) {
         ESP_LOGI(TAG, "schedule active -> preset %d", idx);
         station_set_current(idx);
-        apply_station(idx);
+        apply_station(idx, true);
     }
 }
 
@@ -149,7 +158,7 @@ static void on_encoder(int index)
 #if defined(CONFIG_PRESET_ENABLE_HAPTIC)
     haptic_play(HAPTIC_CLICK);
 #endif
-    apply_station(index);
+    apply_station(index, true);
 }
 
 #if defined(CONFIG_PRESET_ENABLE_UI)
@@ -160,7 +169,7 @@ static void on_ui_nav(int delta)
 #if defined(CONFIG_PRESET_ENABLE_HAPTIC)
     haptic_play(HAPTIC_TICK);
 #endif
-    apply_station(station_advance(delta));
+    apply_station(station_advance(delta), true);
 }
 #endif
 
@@ -169,8 +178,8 @@ static void on_ui_nav(int delta)
 static void on_avrcp(uint8_t cmd)
 {
     switch (cmd) {
-    case PCM_LINK_AVRCP_NEXT: apply_station(station_advance(1));  break;
-    case PCM_LINK_AVRCP_PREV: apply_station(station_advance(-1)); break;
+    case PCM_LINK_AVRCP_NEXT: apply_station(station_advance(1), true);  break;
+    case PCM_LINK_AVRCP_PREV: apply_station(station_advance(-1), true); break;
     default: break;   /* play/pause: transport control is a later step */
     }
 }
@@ -183,16 +192,17 @@ static void on_bt_status(uint8_t state)
         if (s_disc_timer) {
             esp_timer_stop(s_disc_timer);   /* cancel the pending 10 s window */
         }
-        scheduler_apply();                  /* land on the scheduled preset */
-        /* If BT was gone > 10 s, jump the (podcast) back to where it dropped —
-         * the pipeline kept running 'live' meanwhile. */
+        /* If BT was gone > 10 s, first jump the podcast back to where it dropped
+         * (the pipeline kept running 'live' meanwhile) — without re-saving, so
+         * the position captured at the drop stands. */
         if (s_long_gap) {
             const station_t *cur = station_get(station_current());
             if (cur && cur->is_podcast) {
-                apply_station(station_current());
+                apply_station(station_current(), false);
             }
             s_long_gap = false;
         }
+        scheduler_apply();                  /* then land on the scheduled preset */
 #if defined(CONFIG_PRESET_ENABLE_UI)
         ui_show_status(UI_STATUS_NONE, NULL);
 #endif

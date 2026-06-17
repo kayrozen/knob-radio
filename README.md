@@ -159,9 +159,10 @@ All behind Kconfig and compiled in CI:
 - **Podcasts** — a podcast preset's URL is an RSS feed; `podcast.c` resolves it
   to the latest episode's audio (`podcast_parse.c`, a pure host-tested
   `<enclosure>` extractor) and plays that. The play position is remembered per
-  feed: when the car's Bluetooth has been gone for more than 10 s, the position
-  at the drop is saved and playback **resumes there** on reconnect (an HTTP
-  Range request via `adf_pipeline`), so you pick up where you left off. The saved
+  feed and saved when you leave a podcast — either by changing preset
+  (encoder / steering-wheel / schedule) or when the car's Bluetooth has been gone
+  for more than 10 s. Coming back, playback **resumes there** (an HTTP Range
+  request via `adf_pipeline`), so you pick up where you left off. The saved
   position is tied to the episode — if a **newer episode** dropped while you were
   away, it starts the new one from the beginning instead.
 - **BT pairing + AVRCP** — the return UART carries COBS control frames
