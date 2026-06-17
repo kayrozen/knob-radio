@@ -88,10 +88,12 @@ static esp_err_t h_get_presets(httpd_req_t *req)
             for (int d = 0; d < 7; d++) {
                 cJSON_AddItemToArray(days, cJSON_CreateNumber((s->sched.days >> d) & 1));
             }
+            unsigned smin = s->sched.start_min % 1440u;   /* bound to a day so */
+            unsigned emin = s->sched.end_min   % 1440u;   /* HH stays 2 digits */
             char hhmm[6];
-            snprintf(hhmm, sizeof(hhmm), "%02u:%02u", s->sched.start_min / 60, s->sched.start_min % 60);
+            snprintf(hhmm, sizeof(hhmm), "%02u:%02u", smin / 60u, smin % 60u);
             cJSON_AddStringToObject(sch, "start", hhmm);
-            snprintf(hhmm, sizeof(hhmm), "%02u:%02u", s->sched.end_min / 60, s->sched.end_min % 60);
+            snprintf(hhmm, sizeof(hhmm), "%02u:%02u", emin / 60u, emin % 60u);
             cJSON_AddStringToObject(sch, "end", hhmm);
         } else {
             cJSON_AddStringToObject(sch, "mode", "manual");
