@@ -27,6 +27,20 @@ void ui_start(ui_nav_cb_t nav_cb);
 /* Update the displayed station (safe to call from any task). */
 void ui_set_station(int index, const char *name);
 
+/* Transient full-screen states (boot, Wi-Fi, pairing, error). UI_STATUS_NONE
+ * dismisses the overlay and returns to the preset screen. `detail` (may be
+ * NULL) is appended to the message, e.g. an SSID or error string. Safe to call
+ * from any task. */
+typedef enum {
+    UI_STATUS_NONE = 0,
+    UI_STATUS_BOOT,
+    UI_STATUS_WIFI,
+    UI_STATUS_PAIRING,
+    UI_STATUS_ERROR,
+} ui_status_t;
+
+void ui_show_status(ui_status_t status, const char *detail);
+
 #ifdef __cplusplus
 }
 #endif

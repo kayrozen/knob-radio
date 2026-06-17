@@ -74,16 +74,22 @@ static void phase_e_start(void)
 {
     station_init();
 
+    /* Bring the UI up first so its transient overlay can narrate boot. */
+#if defined(CONFIG_PRESET_ENABLE_UI)
+    ui_start(on_ui_nav);              /* core 0 */
+    ui_show_status(UI_STATUS_WIFI, CONFIG_PRESET_WIFI_SSID);
+#endif
+
     if (!wifi_sta_start(CONFIG_PRESET_WIFI_SSID, CONFIG_PRESET_WIFI_PASSWORD, 0)) {
-        ESP_LOGE(TAG, "WiFi did not connect");
+        ESP_LOGE(TAG, "WiFi did not connect (will keep retrying)");
     }
+#if defined(CONFIG_PRESET_ENABLE_UI)
+    ui_show_status(UI_STATUS_NONE, NULL);   /* reveal the preset screen */
+#endif
 
     const station_t *st = station_current_station();
     adf_pipeline_start(st->url);
 
-#if defined(CONFIG_PRESET_ENABLE_UI)
-    ui_start(on_ui_nav);              /* core 0 */
-#endif
     encoder_start(CONFIG_PRESET_ENC_GPIO_A, CONFIG_PRESET_ENC_GPIO_B,
                   on_encoder);        /* core 0 */
 }
