@@ -24,7 +24,7 @@ Full plan (phases, risks, deliverable): [`docs/prototype-plan.md`](docs/prototyp
 | `firmware/s3_sender/` | **ESP32-S3** sender (ESP-IDF, target `esp32s3`). PCM source → frame → COBS → UART TX, plus return-channel backpressure listener. Phase E adds the ESP-ADF radio pipeline, WiFi, rotary encoder, station list and optional LVGL UI (all behind Kconfig). |
 | `firmware/u4wdh_bridge/` | **ESP32-U4WDH** bridge (ESP-IDF, target `esp32`). UART RX → COBS decode → CRC/seq → jitter buffer → A2DP source, plus backpressure transmit. |
 | `test/host/` | Host unit tests (no hardware): COBS round-trip & overhead, frame build/parse, CRC detection, **resync-after-corruption**, jitter buffer wrap/overrun/underrun. |
-| `.github/workflows/ci.yml` | CI: runs host tests + compiles both firmwares with ESP-IDF v5.3. |
+| `.github/workflows/ci.yml` | CI: runs the host unit tests (no hardware). |
 
 The single shared `pcm_link` component is the key design choice: the exact same
 COBS/framing code that runs on both chips is also compiled and unit-tested on the
@@ -76,9 +76,10 @@ run and deployed to GitHub Pages on the default branch / tags. The board has two
 USB-C ports (one per chip); the page flashes each from its own port. After
 flashing, the main chip starts the Wi-Fi setup hotspot (the captive portal).
 
-The pipeline has three independent stages: **ci.yml** (fast host tests + plain
-IDF compile), **phase-e.yml** (full ESP-ADF + UI compile-check), and
-**install-page.yml** (build + merge + publish the installer).
+The pipeline has two stages: **ci.yml** (fast host unit tests, no hardware) and
+**install-page.yml** (builds the real firmware for both chips — including the
+full ESP-ADF + UI + portal + haptic S3 image — then merges + publishes the
+installer). The install build is the firmware compile-check.
 
 ### Firmware (needs ESP-IDF v5.x)
 ```sh
@@ -139,8 +140,8 @@ cd firmware/u4wdh_bridge && idf.py build -DA2DP_TARGET_NAME='"My Car"'
   (`touch_cst816.c`) share the S3's mutex-guarded I2C bus (`i2c_bus.c`) with the
   Phase-6 haptic; the control-bar buttons route through the same station-change
   path as the encoder. Pins are the schematic-confirmed values in `board_pins.h`.
-  The Phase-E CI job (`.github/workflows/phase-e.yml`) compiles the full ESP-ADF
-  pipeline **and** the LVGL UI + touch (`ui.c`/`touch_cst816.c` + the
+  The install-page workflow compiles the full ESP-ADF pipeline **and** the LVGL
+  UI + touch (`ui.c`/`touch_cst816.c` + the
   `lvgl`/`esp_lcd_st77916`/`esp_lcd_touch_cst816s` managed components); only the
   on-hardware panel/touch bring-up is out of CI scope.
 - **Phase F (real car)** — field test; WiFi auto-reconnect (`wifi_sta.c`) covers

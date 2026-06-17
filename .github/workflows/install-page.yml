@@ -1,10 +1,11 @@
 name: Install page (ESP Web Tools)
 
-# Delivery stage of the pipeline: build flashable images for both chips, wrap
-# them in ESP Web Tools manifests, and publish a browser-based installer
+# Delivery + firmware compile-check stage: build flashable images for both chips
+# (the U4WDH bridge and the full S3 product image: ADF + UI + portal + haptic),
+# wrap them in ESP Web Tools manifests, and publish a browser-based installer
 # (web/index.html). Uploaded as an artifact on every run; deployed to GitHub
-# Pages on the default branch and tags. The fast tests (ci.yml) and the ADF
-# compile-check (phase-e.yml) stay separate and authoritative.
+# Pages on the default branch and tags. The fast host tests live in ci.yml; this
+# is the authoritative firmware build.
 
 on:
   workflow_dispatch:
