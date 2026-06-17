@@ -61,6 +61,51 @@ config PRESET_ENABLE_PORTAL
         to configure Wi-Fi, device name, output mode and the station presets
         (plan §3). With stored credentials the device connects as normal.
 
+config PRESET_ENABLE_LAN_EDITOR
+    bool "Enable mDNS <name>.local LAN preset editor"
+    default n
+    depends on PRESET_AUDIO_SOURCE_ADF
+    help
+        Once the device is online (normal operation), advertise it on the LAN as
+        <device-name>.local via mDNS and serve the installer's preset editor over
+        HTTP. Lets you re-pick the five presets from a browser on the same
+        network — search live radio / podcasts, paste URLs, set schedules — and
+        save them straight to the device (plan §3.5). Persists + reboots.
+
+config PRESET_ENABLE_DEEPSLEEP
+    bool "Deep-sleep the S3 when the car (Bluetooth) is gone"
+    default n
+    depends on PRESET_AUDIO_SOURCE_ADF
+    help
+        For battery / always-on car use: when Bluetooth has been disconnected
+        (engine off) for PRESET_SLEEP_AFTER_S seconds, the S3 enters deep sleep
+        to preserve power. It cannot wake on the return UART (GPIO48 is not an
+        RTC pin), so it wakes on an RTC timer every PRESET_SLEEP_POLL_S seconds,
+        asks the U4WDH whether the car is back, and either resumes (full reboot,
+        restoring the saved podcast position) or sleeps again. User activity
+        (encoder / touch) pushes the countdown back.
+
+config PRESET_SLEEP_AFTER_S
+    int "Seconds without Bluetooth before deep sleep"
+    default 60
+    depends on PRESET_ENABLE_DEEPSLEEP
+    help
+        Keep this comfortably above the 10 s podcast-position commit window so
+        the resume offset is always saved before sleeping.
+
+config PRESET_SLEEP_POLL_S
+    int "Deep-sleep poll interval (wake to check for the car), seconds"
+    default 5
+    depends on PRESET_ENABLE_DEEPSLEEP
+
+config PRESET_ENABLE_PROVISION
+    bool "Enable USB serial provisioning (browser installer)"
+    default n
+    help
+        Listen on the USB-Serial-JTAG console for a PROVISION line from the web
+        installer (device name + station presets), persist it and reboot
+        (plan §3.4). Requires the USB-Serial-JTAG console.
+
 config PRESET_ENABLE_UI
     bool "Enable LVGL UI on the round display (JC3636W518V2)"
     default n

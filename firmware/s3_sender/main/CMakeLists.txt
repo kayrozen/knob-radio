@@ -9,13 +9,53 @@ set(srcs
     "audio_output.c"
     "dac_control.c"
     "settings.c"
+    "schedule.c"            # pure auto-play scheduler (host-tested)
+    "podcast_parse.c"       # pure RSS enclosure parser (host-tested)
+    "provision_apply.c"     # shared config-JSON -> NVS (serial + LAN editor)
     "station.c")            # small, dependency-free; always compiled
 set(reqs pcm_link driver nvs_flash esp_timer json)
 
-# Phase 10: captive portal sources. Its REQUIRES (esp_http_server etc.) live in
-# the ADF_PATH block below, because REQUIRES can't be Kconfig-gated (see note).
+# Web-served features. Their REQUIRES (esp_http_server, mdns, ...) live in the
+# ADF_PATH block below, because REQUIRES can't be Kconfig-gated (see note). The
+# embedded pages are served verbatim; preset.css/preset.js are shared by both,
+# so they are embedded once when either feature is on (a path listed twice would
+# produce a duplicate `_binary_*` symbol).
+set(embed)
+set(need_preset_assets OFF)
+
+# Phase 10: captive portal (first-run WiFi + Bluetooth setup).
 if(CONFIG_PRESET_ENABLE_PORTAL)
     list(APPEND srcs "portal.c")
+    list(APPEND embed
+        "../../../web/portal/wifi.html"
+        "../../../web/portal/bluetooth.html"
+        "../../../web/portal/portal.js"
+        "../../../web/assets/portal.css")
+    set(need_preset_assets ON)
+endif()
+
+# mDNS <name>.local LAN preset editor: serves the installer's editor page so the
+# presets can be re-picked from a browser on the same network.
+if(CONFIG_PRESET_ENABLE_LAN_EDITOR)
+    list(APPEND srcs "lan_editor.c")
+    list(APPEND embed
+        "../../../web/install.html"
+        "../../../web/assets/install.css"
+        "../../../web/assets/led-states.css"
+        "../../../web/assets/install.js")
+    set(need_preset_assets ON)
+endif()
+
+if(need_preset_assets)
+    list(APPEND embed
+        "../../../web/assets/preset.css"
+        "../../../web/assets/preset.js")
+endif()
+
+# Phase 10: USB serial provisioning from the browser installer.
+# (usb_serial_jtag comes from the base `driver` req; no extra REQUIRES needed.)
+if(CONFIG_PRESET_ENABLE_PROVISION)
+    list(APPEND srcs "provisioning_serial.c")
 endif()
 
 # IMPORTANT: SRCS may depend on Kconfig, but REQUIRES may NOT — component
@@ -27,7 +67,13 @@ endif()
 
 # Phase E sources: the ESP-ADF pipeline, WiFi and the encoder.
 if(CONFIG_PRESET_AUDIO_SOURCE_ADF)
-    list(APPEND srcs "wifi_sta.c" "encoder.c" "adf_pipeline.c")
+    list(APPEND srcs "wifi_sta.c" "encoder.c" "adf_pipeline.c" "time_sync.c" "podcast.c")
+endif()
+
+# Deep sleep when the car (Bluetooth) is gone. esp_sleep/esp_timer are base IDF,
+# already available; no extra REQUIRES.
+if(CONFIG_PRESET_ENABLE_DEEPSLEEP)
+    list(APPEND srcs "power_sleep.c")
 endif()
 
 # Phase E requirements: the ESP-ADF components only exist when ADF_PATH is
@@ -40,7 +86,7 @@ endif()
 if(DEFINED ENV{ADF_PATH})
     list(APPEND reqs esp_wifi esp_netif esp_event
                      audio_pipeline audio_stream esp-adf-libs audio_sal esp_dispatcher
-                     esp_http_client esp-tls esp_http_server lwip)
+                     esp_http_client esp-tls esp_http_server lwip mdns)
 endif()
 
 # Optional LVGL UI on the round display. The LVGL/display managed components are
@@ -71,4 +117,5 @@ endif()
 
 list(APPEND reqs esp_lcd esp_lvgl_port lvgl esp_lcd_st77916 esp_lcd_touch_cst816s)
 
-idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES ${reqs})
+idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES ${reqs}
+                       EMBED_TXTFILES ${embed})

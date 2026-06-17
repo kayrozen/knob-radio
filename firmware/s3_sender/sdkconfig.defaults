@@ -18,6 +18,11 @@ CONFIG_SPIRAM_SPEED_80M=y
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 CONFIG_FREERTOS_HZ=1000
 
+# --- Console over native USB (the board's S3 USB-C port is USB-Serial-JTAG) ---
+# So `idf.py monitor` and the browser installer's serial provisioning both reach
+# the device on its USB port.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
 # --- Logging ---
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 

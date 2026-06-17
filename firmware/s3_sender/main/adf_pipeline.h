@@ -14,20 +14,26 @@
 #define ADF_PIPELINE_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* Build + start the pipeline on the given URL (WiFi must already be up). */
-void adf_pipeline_start(const char *url);
+/* Build + start the pipeline on `url`, beginning at `byte_offset` source bytes
+ * (an HTTP Range request — used to resume a podcast). WiFi must be up. */
+void adf_pipeline_start(const char *url, uint32_t byte_offset);
 
 /* Read up to `len` bytes of 44.1k/16/stereo PCM. Returns bytes read; 0 if the
  * pipeline is (re)buffering or mid-switch (caller should emit silence). */
 int adf_pipeline_read(void *buf, size_t len);
 
-/* Switch to a new stream URL without tearing down the pipeline objects. */
-void adf_pipeline_set_url(const char *url);
+/* Switch to a new stream URL, optionally resuming at `byte_offset`, without
+ * tearing down the pipeline objects. */
+void adf_pipeline_set_url(const char *url, uint32_t byte_offset);
+
+/* Source byte position currently read from the stream (for resume). */
+uint32_t adf_pipeline_byte_pos(void);
 
 #ifdef __cplusplus
 }

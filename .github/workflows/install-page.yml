@@ -1,10 +1,12 @@
 name: Install page (ESP Web Tools)
 
-# Delivery stage of the pipeline: build flashable images for both chips, wrap
-# them in ESP Web Tools manifests, and publish a browser-based installer
-# (web/index.html). Uploaded as an artifact on every run; deployed to GitHub
-# Pages on the default branch and tags. The fast tests (ci.yml) and the ADF
-# compile-check (phase-e.yml) stay separate and authoritative.
+# Delivery + firmware compile-check stage: build flashable images for both chips
+# (the U4WDH bridge and the full S3 product image: ADF + UI + portal + haptic),
+# wrap them in ESP Web Tools manifests, and publish the site under web/ (the
+# index.html landing page + the install.html browser installer). Uploaded as an
+# artifact on every run; deployed to GitHub Pages on the default branch and
+# tags. The fast host tests live in ci.yml; this is the authoritative firmware
+# build.
 
 on:
   workflow_dispatch:
@@ -47,7 +49,7 @@ jobs:
             idf.py set-target esp32 build
             idf.py merge-bin -o "$DIST/u4wdh-merged.bin" )
 
-          # --- Main (ESP32-S3): full product build (ADF + UI + portal + haptic) ---
+          # --- Main (ESP32-S3): full product build (ADF + UI + portal + haptic + LAN editor) ---
           ( cd firmware/s3_sender
             {
               printf 'CONFIG_PRESET_AUDIO_SOURCE_ADF=y\n'
@@ -55,13 +57,16 @@ jobs:
               printf 'CONFIG_PRESET_ENABLE_UI=y\n'
               printf 'CONFIG_PRESET_ENABLE_HAPTIC=y\n'
               printf 'CONFIG_PRESET_ENABLE_PORTAL=y\n'
+              printf 'CONFIG_PRESET_ENABLE_PROVISION=y\n'
+              printf 'CONFIG_PRESET_ENABLE_LAN_EDITOR=y\n'
+              printf 'CONFIG_PRESET_ENABLE_DEEPSLEEP=y\n'
             } > sdkconfig.defaults.phase_e
             idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.phase_e" \
                    set-target esp32s3 build
             idf.py merge-bin -o "$DIST/s3-merged.bin" )
 
-          # --- Installer page + ESP Web Tools manifests ---
-          cp web/index.html "$DIST/index.html"
+          # --- Installer page (HTML + assets) + ESP Web Tools manifests ---
+          cp -r web/. "$DIST/"
           cat > "$DIST/manifest-u4wdh.json" <<EOF
           { "name": "Preset Radio bridge (U4WDH)", "version": "$VER",
             "new_install_prompt_erase": true,

@@ -37,6 +37,11 @@ static void send_bt_status(uint8_t state)
     link_tx_send_control(PCM_LINK_CTRL_BT_STATUS, &state, 1);
 }
 
+void a2dp_bridge_report_status(void)
+{
+    send_bt_status(s_connected ? PCM_LINK_BT_CONNECTED : PCM_LINK_BT_DISCONNECTED);
+}
+
 void a2dp_bridge_set_metadata(const char *title)
 {
     if (!title) {

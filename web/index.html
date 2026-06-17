@@ -1,61 +1,334 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr" data-lang="fr" data-theme="dark">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Preset Radio — Installer</title>
-  <!-- ESP Web Tools: flash the board from the browser over Web Serial. -->
-  <script type="module"
-          src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
-  <style>
-    :root { color-scheme: dark; }
-    body { font-family: system-ui, sans-serif; background:#111; color:#eee;
-           max-width:640px; margin:0 auto; padding:24px; line-height:1.5; }
-    h1 { color:#E5734A; }
-    h2 { margin-top:32px; }
-    .card { background:#1b1b1b; border:1px solid #333; border-radius:12px;
-            padding:20px; margin:16px 0; }
-    .step { color:#aaa; font-size:0.9em; }
-    a { color:#E5734A; }
-    code { background:#000; padding:1px 5px; border-radius:4px; }
-    esp-web-install-button { --esp-tools-button-color:#fff;
-                             --esp-tools-button-text-color:#111; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Préset — L'autoradio automatique</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="assets/preset.css" />
+<link rel="stylesheet" href="assets/listener.css" />
 </head>
 <body>
-  <h1>Preset Radio installer</h1>
-  <p>Flash the dual-chip board straight from this page over USB — no toolchain
-     needed. Use a Chromium-based browser (Chrome/Edge) on desktop.</p>
 
-  <p class="step"><strong>The board has two USB-C ports</strong>, one per chip.
-     Flash each chip from <em>its own</em> port: connect the port, click its
-     button, pick the serial device, and let it install. Do the bridge first.</p>
-
-  <div class="card">
-    <h2>1 · Bridge (ESP32-U4WDH)</h2>
-    <p class="step">The Bluetooth/A2DP half. Connect the <em>bridge</em> USB-C
-       port.</p>
-    <esp-web-install-button manifest="./manifest-u4wdh.json"></esp-web-install-button>
+<!-- ============================ HEADER ============================ -->
+<header class="site-header">
+  <div class="wrap l-wrap">
+    <a class="brand" href="#top" aria-label="Préset">
+      <span class="dot"></span>
+      <span>Préset</span>
+    </a>
+    <div class="header-right">
+      <span class="header-tag" data-fr>L'autoradio automatique</span>
+      <span class="header-tag" data-en>The automatic car radio</span>
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" data-setlang="fr" aria-pressed="true">FR</button>
+        <button type="button" data-setlang="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
   </div>
+</header>
 
-  <div class="card">
-    <h2>2 · Main (ESP32-S3)</h2>
-    <p class="step">WiFi, codecs, display and UI. Connect the <em>main</em>
-       USB-C port.</p>
-    <esp-web-install-button manifest="./manifest-s3.json"></esp-web-install-button>
+<main id="top">
+
+  <!-- ============================ HERO ============================ -->
+  <section class="l-hero section">
+    <div class="wrap l-wrap">
+      <div class="l-hero-grid">
+        <div class="l-hero-text">
+          <div class="l-hero-lockup">
+            <span data-fr>Préset <span class="accent">·</span> pour les auditeurs</span>
+            <span data-en>Préset <span class="accent">·</span> for listeners</span>
+          </div>
+          <h1>Préset</h1>
+          <p class="tagline" data-fr>L'autoradio automatique.</p>
+          <p class="tagline" data-en>The automatic car radio.</p>
+          <p class="hook" data-fr data-comment-anchor="d6f8b57be7-p">Tu démarres. Ça joue. <span class="soft">Ton téléphone reste loin de tes yeux.</span></p>
+          <p class="hook" data-en>You start. It plays. <span class="soft">Your phone stays out of sight.</span></p>
+          <div class="l-hero-actions">
+            <a class="btn btn-accent btn-lg" href="install.html">
+              <span class="led"></span>
+              <span data-fr>Installer</span><span data-en>Install</span>
+            </a>
+          </div>
+          <p class="reassure">
+            <span class="led"></span>
+            <span data-fr>Logiciel libre · sans abonnement</span>
+            <span data-en>Open source · no subscription</span>
+          </p>
+        </div>
+        <div class="l-hero-media">
+          <figure class="l-hero-photo">
+            <img src="assets/hero.png" alt="Préset on a car dashboard playing a station" loading="eager" decoding="async" />
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 02 — LE SHIFT ===================== -->
+  <section class="shift section">
+    <div class="wrap l-wrap">
+      <div class="eyebrow"><span class="num">01</span><span data-fr>Le manège</span><span data-en>The drill</span></div>
+      <div data-fr>
+        <p class="big quiet" style="margin-top:24px" data-comment-anchor="21677cc031-p">Tu connais le manège. Tu rentres dans ton char, tu fouilles dans tes poches, tu déverrouilles, tu cherches ton app, tu touches deux-trois affaires — souvent en roulant, les yeux sur l'écran au lieu de la route. Finalement ça joue… pendant que t'es déjà rendu ailleurs.</p>
+        <p class="big punch">Préset te sort de ce manège-là. <span class="accent">Pas de gossage d'écran : tu pars, ça joue, t'as les yeux sur la route.</span></p>
+      </div>
+      <div data-en>
+        <p class="big quiet" style="margin-top:24px">You know the drill. You get in the car, dig through your pockets, unlock, hunt for the app, tap two or three things — often while rolling, eyes on the screen instead of the road. It finally plays… by which point you're already somewhere else.</p>
+        <p class="big punch">Préset gets you out of that loop. <span class="accent">No screen to fiddle with: you drive off, it plays, your eyes stay on the road.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 03 — TROIS PROMESSES ==================== -->
+  <section class="section">
+    <div class="wrap l-wrap">
+      <div class="eyebrow"><span class="num">02</span><span data-fr>Quatre promesses</span><span data-en>Four promises</span></div>
+      <div class="promises">
+        <article class="promise">
+          <span class="glyph" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8.5 7.5a8 8 0 1 0 11 0"/><line x1="14" y1="3.5" x2="14" y2="13"/></svg>
+          </span>
+          <h3 data-fr>Démarre avec ton char.</h3>
+          <h3 data-en>Starts with your car.</h3>
+          <p data-fr>Joue avant que t'aies fini de reculer dans l'entrée. À chaque fois.</p>
+          <p data-en>Playing before you've finished backing out of the driveway. Every time.</p>
+        </article>
+        <article class="promise">
+          <span class="glyph" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="14" r="10"/><path d="M14 8.5V14l3.6 2.2"/></svg>
+          </span>
+          <h3 data-fr>Suit ton horaire.</h3>
+          <h3 data-en>Follows your schedule.</h3>
+          <p data-fr>Donne-lui un horaire : ton Préset démarre tout seul sur le bon préset au bon moment.</p>
+          <p data-en>Give it a schedule: your Préset starts on its own, on the right preset at the right time.</p>
+        </article>
+        <article class="promise">
+          <span class="glyph" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8" y="3.5" width="12" height="21" rx="2.4"/><line x1="11.6" y1="6.6" x2="16.4" y2="6.6" stroke-linecap="round"/></svg>
+          </span>
+          <h3 data-fr>Ton téléphone reste rangé.</h3>
+          <h3 data-en>Your phone stays in your pocket.</h3>
+          <p data-fr data-comment-anchor="eeee45f4d9-p">Pas de notifications, pas de scroll, pas de réseaux sociaux entre deux lumières rouges. Ton téléphone reste dans ta poche — il sert juste de wifi.</p>
+          <p data-en>No notifications, no scrolling, no social feeds between two red lights. Your phone stays in your pocket — it's just there for the wifi.</p>
+        </article>
+        <article class="promise">
+          <span class="glyph" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="14" cy="14" r="10"/><line x1="7" y1="7" x2="21" y2="21" stroke-linecap="round"/></svg>
+          </span>
+          <h3 data-fr>Pas d'app. Pas de compte. Pas d'abonnement.</h3>
+          <h3 data-en>No app. No account. No subscription.</h3>
+          <p data-fr>Tu l'installes une fois. Après, tu oublies que ça existe.</p>
+          <p data-en>You install it once. After that, you forget it exists.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 04 — CINQ PRÉSETS ===================== -->
+  <section class="presets section">
+    <div class="wrap l-wrap l-center">
+      <div class="eyebrow"><span class="num">03</span><span data-fr>Cinq présets</span><span data-en>Five presets</span></div>
+      <h2 class="lead wide" data-fr data-comment-anchor="0976699141-h2">Cinq stations (ou podcasts) préférés, toujours prêts.</h2>
+      <h2 class="lead wide" data-en>Five favourite stations (or podcasts), always ready.</h2>
+      <div class="preset-row" role="group" aria-label="Présets" data-comment-anchor="2f3b4e0a2c-div">
+        <button type="button" class="preset-btn active"><span class="led"></span><span class="pn">1</span><span class="nm"><span class="nm-name">ICI Musique</span><span class="nm-type"><span data-fr>Station</span><span data-en>Station</span></span></span></button>
+        <button type="button" class="preset-btn"><span class="led"></span><span class="pn">2</span><span class="nm"><span class="nm-name">CKOI 96,9</span><span class="nm-type"><span data-fr>Station</span><span data-en>Station</span></span></span></button>
+        <button type="button" class="preset-btn"><span class="led"></span><span class="pn">3</span><span class="nm"><span class="nm-name">Sans Filtre</span><span class="nm-type"><span data-fr>Balado</span><span data-en>Podcast</span></span></span></button>
+        <button type="button" class="preset-btn"><span class="led"></span><span class="pn">4</span><span class="nm"><span class="nm-name">98,5 FM</span><span class="nm-type"><span data-fr>Station</span><span data-en>Station</span></span></span></button>
+        <button type="button" class="preset-btn"><span class="led"></span><span class="pn">5</span><span class="nm"><span class="nm-name">Distorsion</span><span class="nm-type"><span data-fr>Balado</span><span data-en>Podcast</span></span></span></button>
+      </div>
+      <p class="preset-caption" data-fr data-comment-anchor="ec08fccd34-p">Tu les choisis avant l'install. Tu les changes avec les boutons <span class="wheel-key"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="3.6" width="1.8" height="8.8" rx="0.6"/><path d="M13 3.6v8.8L6 8z"/></svg>préc.</span> et <span class="wheel-key">suiv.<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="11.2" y="3.6" width="1.8" height="8.8" rx="0.6"/><path d="M3 3.6v8.8L10 8z"/></svg></span> sur ton volant. <span class="nostalgia">Comme dans le temps.</span></p>
+      <p class="preset-caption" data-en>You pick them before install. You switch with the <span class="wheel-key"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="3.6" width="1.8" height="8.8" rx="0.6"/><path d="M13 3.6v8.8L6 8z"/></svg>prev</span> and <span class="wheel-key">next<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="11.2" y="3.6" width="1.8" height="8.8" rx="0.6"/><path d="M3 3.6v8.8L10 8z"/></svg></span> buttons on your wheel. <span class="nostalgia">Like the old days.</span></p>
+    </div>
+  </section>
+
+  <!-- ================== 05 — COMMENT ÇA MARCHE ================== -->
+  <section class="section">
+    <div class="wrap l-wrap">
+      <div class="eyebrow"><span class="num">04</span><span data-fr>Comment ça marche</span><span data-en>How it works</span></div>
+      <h2 class="lead wide" data-fr>Première fois : cinq minutes. <span class="kicker-line">Après : zéro seconde.</span></h2>
+      <h2 class="lead wide" data-en>First time: five minutes. <span class="kicker-line">After that: zero seconds.</span></h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <h3 data-fr>Tu choisis cinq stations ou podcasts.</h3><h3 data-en>Pick five stations.</h3>
+          <p data-fr>Sur la page web, avec un moteur de recherche ou colle directement l'url.</p>
+          <p data-en>On the web page, with a search engine. Your favourites, plus four suggestions.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <h3 data-fr>Tu branches Préset par USB.</h3><h3 data-en>Plug in Préset by USB.</h3>
+          <p data-fr>Tu cliques « Installer » dans ton navigateur. Trente secondes plus tard, c'est prêt.</p>
+          <p data-en>Click “Install” in your browser. Thirty seconds later, it's ready.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <h3 data-fr data-comment-anchor="ec190122ef-h3">Tu configures wifi et haut-parleur.</h3><h3 data-en>Set up wifi and speaker.</h3>
+          <p data-fr>Une page apparaît automatiquement sur ton téléphone. Deux champs.</p>
+          <p data-en>A page opens automatically on your phone. Two fields.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <h3 data-fr>Tu démarres ton char.</h3><h3 data-en>Start your car.</h3>
+          <p data-fr>Et c'est tout. À chaque fois.</p>
+          <p data-en>And that's it. Every time.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 06 — CE QU'IL TE FAUT ==================== -->
+  <section class="section">
+    <div class="wrap l-wrap">
+      <div class="eyebrow"><span class="num">05</span><span data-fr>Ce qu'il te faut</span><span data-en>What you need</span></div>
+      <h2 class="lead wide" data-fr>Trois affaires. </h2>
+      <h2 class="lead wide" data-en>Three things. That's all.</h2>
+      <div class="checklist">
+        <div class="check-item">
+          <span class="glyph" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 10.5 8 15 16.5 5"/></svg></span>
+          <div>
+            <h3 data-fr>Un Préset</h3><h3 data-en>A Préset</h3>
+            <p data-fr>Tu peux le bâtir et personnaliser toi-même — les plans sont gratuits sur GitHub. Ou on peut t'en envoyer un déjà assemblé (bientôt).</p>
+            <p data-fr class="check-note">Les cartes <a href="https://raspiaudio.com/muse/">ESP MUSE</a> sont aussi compatibles : un matériel audio tout-en-un, prêt à l'emploi.</p>
+            <p data-en>Build it yourself — the plans are free on <a href="https://github.com/kayrozen/knob-radio">GitHub</a>. Or we can send you one pre-assembled (soon).</p>
+            <p data-en class="check-note"><a href="https://raspiaudio.com/muse/">ESP MUSE</a> boards work too — all-in-one, finished audio hardware that's ready right out of the box.</p>
+          </div>
+        </div>
+        <div class="check-item">
+          <span class="glyph" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 10.5 8 15 16.5 5"/></svg></span>
+          <div>
+            <h3 data-fr>Un cellulaire qui partage sa connexion.</h3><h3 data-en>A phone that shares its connection.</h3>
+            <p data-fr>La majorité le font aujourd'hui, if faut cependant l'activer. Ton forfait habituel suffit. Ça consomme peu.</p>
+            <p data-en>Your usual plan is plenty. It barely uses data.</p>
+          </div>
+        </div>
+        <div class="check-item">
+          <span class="glyph" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 10.5 8 15 16.5 5"/></svg></span>
+          <div>
+            <h3 data-fr>Un haut-parleur Bluetooth.</h3><h3 data-en>A Bluetooth speaker.</h3>
+            <p data-fr>Ton char en est un. Sinon, n'importe quel haut-parleur portatif fait la job.</p>
+            <p data-en>Your car is one. Otherwise any portable speaker does the job.</p>
+          </div>
+        </div>
+      </div>
+      <p class="check-note" data-fr>C'est tout. Pas d'abonnement à un service. Pas de compte à créer. Pas d'algorithmes de suggestion.</p>
+      <p class="check-note" data-en>That's all. No service to subscribe to. No account to create.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 07 — FAIT POUR DURER ===================== -->
+  <section class="durable section">
+    <div class="wrap l-wrap">
+      <div class="eyebrow"><span class="num">06</span><span data-fr>Fait pour durer</span><span data-en>Built to last</span></div>
+      <div class="lines" data-fr>
+        <p>Si ton wifi tombe, Préset revient.</p>
+        <p>Si une station meurt, il en prend une autre.</p>
+        <p>Si on trouve un bug, on l'envoie réparer dans ton char la nuit.</p>
+      </div>
+      <div class="lines" data-en>
+        <p>If your wifi drops, Préset comes back.</p>
+        <p>If a station goes dark, it picks another.</p>
+        <p>If we find a bug, we send the fix to your car overnight.</p>
+      </div>
+      <p class="closer" data-fr>C'est plate à dire, mais c'est l'idée : <span class="accent">que tu n'aies plus jamais à penser à cette affaire-là.</span></p>
+      <p class="closer" data-en>It's boring to admit, but that's the point: that you never have to think about this thing again.</p>
+    </div>
+  </section>
+
+  <!-- ======================= 08 — VIE PRIVÉE ======================= -->
+  <section class="section">
+    <div class="wrap l-wrap">
+      <div class="eyebrow"><span class="num">07</span><span data-fr>Vie privée</span><span data-en>Privacy</span></div>
+      <h2 class="lead wide" data-fr>Clair, pas en petits caractères.</h2>
+      <h2 class="lead wide" data-en>Plain, not in fine print.</h2>
+      <div class="privacy-cols">
+        <div class="privacy-col keep">
+          <div class="ph"><span class="glyph" aria-hidden="true">●</span><span data-fr>Ce qu'on garde</span><span data-en>What we keep</span></div>
+          <ul data-fr>
+            <li>Un identifiant anonyme pour ton Préset</li>
+            <li>Les stations que tu écoutes</li>
+            <li>Les erreurs qui surviennent</li>
+          </ul>
+          <ul data-en>
+            <li>An anonymous ID for your Préset</li>
+            <li>The stations you listen to</li>
+            <li>Errors when they happen</li>
+          </ul>
+        </div>
+        <div class="privacy-col drop">
+          <div class="ph"><span class="glyph" aria-hidden="true">○</span><span data-fr>Ce qu'on garde pas</span><span data-en>What we don't keep</span></div>
+          <ul data-fr>
+            <li>Ton mot de passe wifi</li>
+            <li>Ta position</li>
+            <li>Le contenu audio</li>
+          </ul>
+          <ul data-en>
+            <li>Your wifi password</li>
+            <li>Your location</li>
+            <li>The audio itself</li>
+          </ul>
+        </div>
+      </div>
+      <div class="privacy-actions">
+        <span class="txt" data-fr>Tu peux tout couper en deux clics. Tu peux tout effacer aussi.</span>
+        <span class="txt" data-en>You can switch it all off in two clicks. You can erase it all too.</span>
+        <a href="#"><span data-fr>→ Détails complets</span><span data-en>→ Full details</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 09 — CTA FINAL ===================== -->
+  <section class="final-cta" id="installer">
+    <div class="wrap l-wrap">
+      <a class="btn btn-accent btn-lg" href="install.html">
+        <span class="led"></span>
+        <span data-fr>Installer</span><span data-en>Install</span>
+      </a>
+      <div class="signature">Préset <span class="muted">·</span>
+        <span class="muted" data-fr>L'autoradio automatique.</span>
+        <span class="muted" data-en>The automatic car radio.</span>
+      </div>
+      <p class="reassure">
+        <span class="led"></span>
+        <span data-fr>Logiciel libre · sans abonnement</span>
+        <span data-en>Open source · no subscription</span>
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============================ FOOTER ============================ -->
+<footer class="site-footer">
+  <div class="wrap l-wrap">
+    <div class="footer-grid">
+      <div class="footer-col" style="max-width:34ch">
+        <span class="h" data-fr>Projet ouvert</span><span class="h" data-en>Open project</span>
+        <span style="color:var(--fg-2);font-size:15.5px;line-height:1.55" data-fr>Préset est un projet ouvert. Le code, les plans et la documentation sont sur GitHub.</span>
+        <span style="color:var(--fg-2);font-size:15.5px;line-height:1.55" data-en>Préset is an open project. The code, plans and docs all live on GitHub.</span>
+        <a href="https://github.com/kayrozen/knob-radio" style="margin-top:6px">GitHub →</a>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <span class="h" data-fr>PARTENARIATS</span><span class="h" data-en>Partnerships</span>
+          <a href="https://github.com/kayrozen/knob-radio"><span class="b2b" data-fr>T'as une station de radio ?</span><span class="b2b" data-en>Run a radio station?</span></a>
+          <a href="https://github.com/kayrozen/knob-radio"><span class="b2b" data-fr>T'as un podcast ou un live ?</span><span class="b2b" data-en>Run a podcast or live show?</span></a>
+        </div>
+        <div class="footer-col">
+          <span class="h" data-fr>Liens</span><span class="h" data-en>Links</span>
+          <a href="#"><span data-fr>Vie privée</span><span data-en>Privacy</span></a>
+          <a href="mailto:salut@preset.stream"><span data-fr>Nous écrire</span><span data-en>Contact us</span></a>
+        </div>
+      </div>
+    </div>
   </div>
+</footer>
 
-  <h2>After flashing</h2>
-  <p class="step">On first boot the main chip starts a Wi-Fi setup hotspot
-     (named <code>Preset Radio</code>). Join it, and the captive portal opens to
-     configure Wi-Fi, the output mode and your station presets.</p>
+<!-- ============================ SCRIPTS ============================ -->
+<script src="assets/preset.js"></script>
+<script src="assets/listener.js"></script>
 
-  <p class="step">Build: <code id="ver">dev</code> ·
-     <a href="https://github.com/kayrozen/knob-radio">source</a></p>
-  <script>
-    fetch('./manifest-s3.json').then(r => r.json())
-      .then(m => { document.getElementById('ver').textContent = m.version; })
-      .catch(() => {});
-  </script>
 </body>
 </html>

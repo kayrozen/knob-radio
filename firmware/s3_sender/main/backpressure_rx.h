@@ -19,10 +19,15 @@ extern "C" {
 typedef void (*return_avrcp_cb_t)(uint8_t cmd);
 /* Bluetooth connection state from the bridge: a pcm_link_bt_state_t. */
 typedef void (*return_bt_status_cb_t)(uint8_t state);
+/* One discovered Bluetooth sink (mac[6] + NUL-terminated name) during a scan. */
+typedef void (*return_scan_cb_t)(const uint8_t *mac, const char *name);
 
 /* Register handlers for non-flow control messages (either may be NULL). */
 void backpressure_rx_set_handlers(return_avrcp_cb_t avrcp,
                                   return_bt_status_cb_t bt_status);
+
+/* Register a handler for BT_SCAN_RESULT frames (the captive portal's BT scan). */
+void backpressure_rx_set_scan_cb(return_scan_cb_t scan);
 
 /* Start the return-channel listener task. */
 void backpressure_rx_start(void);

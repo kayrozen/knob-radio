@@ -1,5 +1,9 @@
 name: CI
 
+# Fast, authoritative host-side tests (no hardware, no ESP-IDF). The firmware is
+# built and compile-checked by the install-page workflow, which produces the
+# real flashable images for both chips.
+
 on:
   push:
     branches: ["**"]
@@ -13,25 +17,3 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build & run host tests
         run: make -C test/host test
-
-  firmware-build:
-    name: Build firmware (ESP-IDF)
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: s3_sender
-            path: firmware/s3_sender
-            target: esp32s3
-          - name: u4wdh_bridge
-            path: firmware/u4wdh_bridge
-            target: esp32
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build ${{ matrix.name }} (${{ matrix.target }})
-        uses: espressif/esp-idf-ci-action@v1
-        with:
-          esp_idf_version: v5.3
-          target: ${{ matrix.target }}
-          path: ${{ matrix.path }}

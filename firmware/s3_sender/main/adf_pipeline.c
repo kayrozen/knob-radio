@@ -53,7 +53,26 @@ static void adf_event_task(void *arg)
     }
 }
 
-void adf_pipeline_start(const char *url)
+/* Set the http element's source byte position (resume via HTTP Range). */
+static void set_byte_pos(uint32_t byte_offset)
+{
+    audio_element_info_t info = AUDIO_ELEMENT_INFO_DEFAULT();
+    audio_element_getinfo(s_http, &info);
+    info.byte_pos = (int64_t)byte_offset;
+    audio_element_setinfo(s_http, &info);
+}
+
+uint32_t adf_pipeline_byte_pos(void)
+{
+    if (!s_http) {
+        return 0;
+    }
+    audio_element_info_t info = AUDIO_ELEMENT_INFO_DEFAULT();
+    audio_element_getinfo(s_http, &info);
+    return info.byte_pos > 0 ? (uint32_t)info.byte_pos : 0;
+}
+
+void adf_pipeline_start(const char *url, uint32_t byte_offset)
 {
     audio_pipeline_cfg_t pcfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
     s_pipeline = audio_pipeline_init(&pcfg);
@@ -98,8 +117,11 @@ void adf_pipeline_start(const char *url)
     audio_pipeline_set_listener(s_pipeline, s_evt);
 
     audio_element_set_uri(s_http, url);
+    if (byte_offset) {
+        set_byte_pos(byte_offset);
+    }
     audio_pipeline_run(s_pipeline);
-    ESP_LOGI(TAG, "pipeline running: %s", url);
+    ESP_LOGI(TAG, "pipeline running: %s (offset %lu)", url, (unsigned long)byte_offset);
 
     xTaskCreatePinnedToCore(adf_event_task, "adf_evt", 3072, NULL, 5, NULL, 1);
 }
@@ -110,9 +132,9 @@ int adf_pipeline_read(void *buf, size_t len)
     return (n > 0) ? n : 0;
 }
 
-void adf_pipeline_set_url(const char *url)
+void adf_pipeline_set_url(const char *url, uint32_t byte_offset)
 {
-    ESP_LOGI(TAG, "switching to: %s", url);
+    ESP_LOGI(TAG, "switching to: %s (offset %lu)", url, (unsigned long)byte_offset);
     /* Stop and reset every element, re-point the URI, run again. The pipeline
      * objects persist, so this is fast and leaves the rest of the system
      * (and the downstream A2DP link) intact. */
@@ -123,5 +145,6 @@ void adf_pipeline_set_url(const char *url)
     audio_pipeline_change_state(s_pipeline, AEL_STATE_INIT);
 
     audio_element_set_uri(s_http, url);
+    set_byte_pos(byte_offset);
     audio_pipeline_run(s_pipeline);
 }

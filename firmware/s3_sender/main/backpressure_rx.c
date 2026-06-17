@@ -12,6 +12,7 @@
 #include "esp_log.h"
 
 #include <stdatomic.h>
+#include <string.h>
 
 static const char *TAG = "ret_rx";
 
@@ -29,12 +30,18 @@ static atomic_int s_state = ST_NORMAL;
 
 static return_avrcp_cb_t     s_avrcp_cb;
 static return_bt_status_cb_t s_bt_cb;
+static return_scan_cb_t      s_scan_cb;
 
 void backpressure_rx_set_handlers(return_avrcp_cb_t avrcp,
                                   return_bt_status_cb_t bt_status)
 {
     s_avrcp_cb = avrcp;
     s_bt_cb    = bt_status;
+}
+
+void backpressure_rx_set_scan_cb(return_scan_cb_t scan)
+{
+    s_scan_cb = scan;
 }
 
 double backpressure_rate(void)
@@ -81,8 +88,17 @@ static void on_frame(const pcm_frame_t *frame, void *user)
         }
         break;
     case PCM_LINK_CTRL_BT_SCAN_RESULT:
-        /* mac[6] + name; the portal will surface these (Phase 10 hook). */
-        ESP_LOGI(TAG, "scan result (%u bytes)", (unsigned)msg.arg_len);
+        /* mac[6] + name -> the captive portal's BT scan list. */
+        if (msg.arg_len >= 6 && s_scan_cb) {
+            char name[58];
+            size_t nl = msg.arg_len - 6;
+            if (nl > sizeof(name) - 1) {
+                nl = sizeof(name) - 1;
+            }
+            memcpy(name, msg.args + 6, nl);
+            name[nl] = '\0';
+            s_scan_cb(msg.args, name);
+        }
         break;
     default:
         break;
