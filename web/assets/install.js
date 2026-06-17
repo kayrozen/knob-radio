@@ -896,7 +896,9 @@ document.getElementById('device-name').addEventListener('input', function () {
 /* ═══════════════════════════════════════════════════════════════
    ESP Web Tools serial handoff
 ═══════════════════════════════════════════════════════════════ */
-function buildProvisionPayload() {
+/* The config object both transports share: the USB installer wraps it as a
+   `PROVISION:<json>\n` serial line; the LAN editor POSTs it to /api/presets. */
+function buildConfigObject() {
   const name = document.getElementById('device-name').value.trim();
   if (!DEVICE_NAME_RE.test(name)) throw new Error(T('invalidName'));
   if (playlist.length === 0) throw new Error(T('emptyPl'));
@@ -910,7 +912,10 @@ function buildProvisionPayload() {
   }));
   let timezone = '';
   try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (_) {}
-  return 'PROVISION:' + JSON.stringify({ provision_version: 1, device_name: name, timezone: timezone, playlist: pl }) + '\n';
+  return { provision_version: 1, device_name: name, timezone: timezone, playlist: pl };
+}
+function buildProvisionPayload() {
+  return 'PROVISION:' + JSON.stringify(buildConfigObject()) + '\n';
 }
 async function sendProvisioning(port) {
   const statusEl = document.getElementById('install-status');
@@ -1025,3 +1030,96 @@ function randomNameSuffix() { return Math.random().toString(36).slice(2, 6); }
 applyLangStrings();
 renderPlaylist();
 loadLocalSuggestions();
+
+/* ═══════════════════════════════════════════════════════════════
+   Device mode — same page, served from the knob over the LAN (<name>.local).
+   When GET /api/presets answers, this isn't the browser installer but the
+   on-device editor: prefill the current name + presets, hide the USB-flashing
+   UI, and save by POSTing the same config object back to /api/presets.
+═══════════════════════════════════════════════════════════════ */
+function enterDeviceMode(cfg) {
+  // Prefill the device name and the five presets from the live config.
+  const nameEl = document.getElementById('device-name');
+  if (nameEl && cfg.device_name) nameEl.value = cfg.device_name;
+  playlist = (cfg.playlist || []).slice(0, PLAYLIST_MAX).map(p => {
+    const sc = p.schedule || {};
+    let schedule;
+    if (sc.mode === 'auto') {
+      const days = (sc.days || []).map(b => !!b);
+      while (days.length < 7) days.push(false);
+      schedule = { manual: false, days: days, start: sc.start || '07:00', end: sc.end || '09:00' };
+    } else {
+      schedule = defaultSchedule();
+    }
+    return {
+      name: p.name || '', url: p.url,
+      kind: p.kind || 'live',
+      source: p.kind === 'podcast' ? 'podcast' : 'custom_url',
+      schedule: schedule,
+    };
+  });
+  renderPlaylist();
+
+  // Hide everything specific to first-time USB flashing.
+  ['install-card', 'bridge-card'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  const legend = document.querySelector('.led-legend');
+  if (legend) legend.style.display = 'none';
+
+  // A save card in place of the flashing step.
+  const step2 = document.getElementById('step2-card');
+  if (step2 && !document.getElementById('save-card')) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = 'save-card';
+    card.innerHTML =
+      '<div class="step-label"><span data-fr>Sur ton réseau</span><span data-en>On your network</span></div>' +
+      '<h2><span data-fr>Enregistrer sur l’appareil</span><span data-en>Save to the device</span></h2>' +
+      '<p><span data-fr>Tes présets sont envoyés directement au Préset par wifi. Il redémarre et joue la nouvelle sélection — aucun câble.</span>' +
+      '<span data-en>Your presets go straight to the Préset over wifi. It restarts and plays the new selection — no cable.</span></p>' +
+      '<button class="btn" id="save-device-btn"><span data-fr>Enregistrer les présets</span><span data-en>Save presets</span></button>' +
+      '<div class="status-msg" id="save-status"></div>';
+    step2.parentNode.insertBefore(card, step2.nextSibling);
+    document.getElementById('save-device-btn').addEventListener('click', saveToDevice);
+  }
+}
+
+function saveToDevice() {
+  const statusEl = document.getElementById('save-status');
+  const btn = document.getElementById('save-device-btn');
+  let cfg;
+  try {
+    cfg = buildConfigObject();
+  } catch (err) {
+    statusEl.textContent = '⚠ ' + err.message;
+    statusEl.className = 'status-msg err';
+    return;
+  }
+  statusEl.textContent = T('sending');
+  statusEl.className = 'status-msg';
+  if (btn) btn.disabled = true;
+  fetch('/api/presets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cfg),
+  }).then(r => {
+    if (!r.ok) throw new Error('rejected');
+    statusEl.innerHTML = '<span data-fr>Enregistré — le Préset redémarre sur ta nouvelle sélection.</span>' +
+      '<span data-en>Saved — the Préset is restarting on your new selection.</span>';
+    statusEl.className = 'status-msg';
+  }).catch(() => {
+    statusEl.textContent = T('flashFailed');
+    statusEl.className = 'status-msg err';
+    if (btn) btn.disabled = false;
+  });
+}
+
+(function probeDevice() {
+  if (!/^https?:$/.test(location.protocol)) return;   // file:// preview — skip
+  fetch('/api/presets', { cache: 'no-store' })
+    .then(r => (r.ok ? r.json() : Promise.reject()))
+    .then(cfg => { if (cfg && Array.isArray(cfg.playlist)) enterDeviceMode(cfg); })
+    .catch(() => { /* served by the public installer (no device API) — leave as-is */ });
+})();

@@ -49,7 +49,7 @@ jobs:
             idf.py set-target esp32 build
             idf.py merge-bin -o "$DIST/u4wdh-merged.bin" )
 
-          # --- Main (ESP32-S3): full product build (ADF + UI + portal + haptic) ---
+          # --- Main (ESP32-S3): full product build (ADF + UI + portal + haptic + LAN editor) ---
           ( cd firmware/s3_sender
             {
               printf 'CONFIG_PRESET_AUDIO_SOURCE_ADF=y\n'
@@ -58,6 +58,7 @@ jobs:
               printf 'CONFIG_PRESET_ENABLE_HAPTIC=y\n'
               printf 'CONFIG_PRESET_ENABLE_PORTAL=y\n'
               printf 'CONFIG_PRESET_ENABLE_PROVISION=y\n'
+              printf 'CONFIG_PRESET_ENABLE_LAN_EDITOR=y\n'
             } > sdkconfig.defaults.phase_e
             idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.phase_e" \
                    set-target esp32s3 build

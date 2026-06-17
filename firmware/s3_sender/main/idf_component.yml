@@ -5,6 +5,11 @@
 dependencies:
   idf: ">=5.1"
 
+  # mDNS (<name>.local) for the LAN preset editor; only required when
+  # CONFIG_PRESET_ENABLE_LAN_EDITOR is set (see CMakeLists.txt REQUIRES).
+  espressif/mdns:
+    version: "^1.2"
+
   espressif/esp_lvgl_port:
     version: "^1.4"
   lvgl/lvgl:

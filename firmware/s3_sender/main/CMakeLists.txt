@@ -11,21 +11,44 @@ set(srcs
     "settings.c"
     "schedule.c"            # pure auto-play scheduler (host-tested)
     "podcast_parse.c"       # pure RSS enclosure parser (host-tested)
+    "provision_apply.c"     # shared config-JSON -> NVS (serial + LAN editor)
     "station.c")            # small, dependency-free; always compiled
 set(reqs pcm_link driver nvs_flash esp_timer json)
 
-# Phase 10: captive portal sources. Its REQUIRES (esp_http_server etc.) live in
-# the ADF_PATH block below, because REQUIRES can't be Kconfig-gated (see note).
-# The designed WiFi/Bluetooth pages + shared CSS/JS are embedded in the image.
+# Web-served features. Their REQUIRES (esp_http_server, mdns, ...) live in the
+# ADF_PATH block below, because REQUIRES can't be Kconfig-gated (see note). The
+# embedded pages are served verbatim; preset.css/preset.js are shared by both,
+# so they are embedded once when either feature is on (a path listed twice would
+# produce a duplicate `_binary_*` symbol).
 set(embed)
+set(need_preset_assets OFF)
+
+# Phase 10: captive portal (first-run WiFi + Bluetooth setup).
 if(CONFIG_PRESET_ENABLE_PORTAL)
     list(APPEND srcs "portal.c")
     list(APPEND embed
         "../../../web/portal/wifi.html"
         "../../../web/portal/bluetooth.html"
         "../../../web/portal/portal.js"
+        "../../../web/assets/portal.css")
+    set(need_preset_assets ON)
+endif()
+
+# mDNS <name>.local LAN preset editor: serves the installer's editor page so the
+# presets can be re-picked from a browser on the same network.
+if(CONFIG_PRESET_ENABLE_LAN_EDITOR)
+    list(APPEND srcs "lan_editor.c")
+    list(APPEND embed
+        "../../../web/install.html"
+        "../../../web/assets/install.css"
+        "../../../web/assets/led-states.css"
+        "../../../web/assets/install.js")
+    set(need_preset_assets ON)
+endif()
+
+if(need_preset_assets)
+    list(APPEND embed
         "../../../web/assets/preset.css"
-        "../../../web/assets/portal.css"
         "../../../web/assets/preset.js")
 endif()
 
@@ -57,7 +80,7 @@ endif()
 if(DEFINED ENV{ADF_PATH})
     list(APPEND reqs esp_wifi esp_netif esp_event
                      audio_pipeline audio_stream esp-adf-libs audio_sal esp_dispatcher
-                     esp_http_client esp-tls esp_http_server lwip)
+                     esp_http_client esp-tls esp_http_server lwip mdns)
 endif()
 
 # Optional LVGL UI on the round display. The LVGL/display managed components are

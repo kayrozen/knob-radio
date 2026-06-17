@@ -61,6 +61,17 @@ config PRESET_ENABLE_PORTAL
         to configure Wi-Fi, device name, output mode and the station presets
         (plan §3). With stored credentials the device connects as normal.
 
+config PRESET_ENABLE_LAN_EDITOR
+    bool "Enable mDNS <name>.local LAN preset editor"
+    default n
+    depends on PRESET_AUDIO_SOURCE_ADF
+    help
+        Once the device is online (normal operation), advertise it on the LAN as
+        <device-name>.local via mDNS and serve the installer's preset editor over
+        HTTP. Lets you re-pick the five presets from a browser on the same
+        network — search live radio / podcasts, paste URLs, set schedules — and
+        save them straight to the device (plan §3.5). Persists + reboots.
+
 config PRESET_ENABLE_PROVISION
     bool "Enable USB serial provisioning (browser installer)"
     default n

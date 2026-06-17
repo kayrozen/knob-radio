@@ -42,6 +42,9 @@
 #if defined(CONFIG_PRESET_ENABLE_PORTAL)
 #include "portal.h"
 #endif
+#if defined(CONFIG_PRESET_ENABLE_LAN_EDITOR)
+#include "lan_editor.h"
+#endif
 #if defined(CONFIG_PRESET_ENABLE_UI)
 #include "ui.h"
 #include "album_art.h"
@@ -271,6 +274,11 @@ static void phase_e_start(void)
 
     /* Wall-clock time -> when it first syncs, jump to the scheduled preset. */
     time_sync_start(scheduler_apply);
+
+    /* Online: advertise <name>.local and serve the preset editor on the LAN. */
+#if defined(CONFIG_PRESET_ENABLE_LAN_EDITOR)
+    lan_editor_start();
+#endif
 
     /* Initial play: resolve the current preset (podcast -> latest episode at its
      * saved position) and start the pipeline on it. */

@@ -73,7 +73,7 @@ Full plan: [`docs/prototype-plan.md`](docs/prototype-plan.md).
 | Path | What |
 |---|---|
 | `components/pcm_link/` | **Shared protocol** (both firmwares + host tests): COBS codec, typed logical frame, streaming reassembler, control-message codec, wire constants & pinout. Pure C, no ESP-IDF deps. |
-| `firmware/s3_sender/` | **ESP32-S3** (target `esp32s3`): ESP-ADF radio pipeline, WiFi, encoder, station list, LVGL UI + touch, haptic, analog DAC path, captive portal, serial provisioning — all behind Kconfig. |
+| `firmware/s3_sender/` | **ESP32-S3** (target `esp32s3`): ESP-ADF radio pipeline, WiFi, encoder, station list, LVGL UI + touch, haptic, analog DAC path, captive portal, mDNS LAN preset editor, serial provisioning — all behind Kconfig. |
 | `firmware/u4wdh_bridge/` | **ESP32-U4WDH** (target `esp32`): UART RX → COBS → CRC/seq → jitter buffer → A2DP source + AVRCP target, plus the return-channel control transmitter. |
 | `web/` | The browser installer: `index.html` (landing) + `install.html` (ESP Web Tools flasher + serial provisioning). |
 | `test/host/` | Host unit tests (no hardware): COBS round-trip & overhead, frame/control build/parse, CRC + resync-after-corruption, jitter buffer wrap/overrun/underrun. |
@@ -171,8 +171,16 @@ All behind Kconfig and compiled in CI:
 - **Captive portal (setup)** — `portal.c` serves the designed two-step flow from
   embedded pages (`web/portal/`): pick a real WiFi network (live scan, save +
   join) then pick a Bluetooth speaker (scan/pair orchestrated over the control
-  plane); finishing reboots into normal operation. A `<name>.local` preset
-  editor over WiFi is the next step.
+  plane); finishing reboots into normal operation.
+- **LAN preset editor** — once online, `lan_editor.c` advertises the device as
+  `<name>.local` (mDNS) and serves the **same installer preset editor** (the
+  embedded `web/install.html` + assets) over HTTP. The page detects it's being
+  served by a device (a live `GET /api/presets`) and switches to "device mode":
+  it prefills the current name + presets and, on save, `POST`s the same config
+  object back to `/api/presets` instead of flashing over USB. So you re-pick the
+  five presets — live-radio / podcast search, URLs, schedules — from any browser
+  on the network; the device persists them and reboots. The serial installer and
+  the LAN editor share one parser (`provision_apply.c`).
 
 ### Roadmap
 
