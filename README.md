@@ -161,9 +161,15 @@ validated prototype, behind Kconfig and compiled in CI:
   redirect + one-page HTTP config (Wi-Fi, device name, output mode, the 5
   presets) and persists it via `settings.c` / `station_set_playlist()`; stored
   credentials boot straight into normal operation.
+- **BT pairing + AVRCP relay** — the return UART now carries COBS control frames
+  (`link_tx.c` / the reworked `backpressure_rx.c`): the bridge reports BT status
+  and scan results and accepts pair commands, and its AVRCP target relays the
+  car's steering-wheel buttons to the S3 (`PCM_LINK_CTRL_BT_*` / `AVRCP_EVENT`).
+  Flow control moved onto the same framed channel.
 
 ## What this prototype does NOT do (yet)
 
-OTA (S3 A/B + U4WDH-over-UART), BT pairing/AVRCP orchestration, telemetry,
-mic/SD, branding, image signing — see the product plan's phase list. No hardware
-re-validation is needed (pins confirmed from the schematics).
+OTA (S3 A/B + U4WDH-over-UART), AVRCP cover-art / full now-playing metadata to
+the car, telemetry, mic/SD, branding, image signing — see the product plan's
+phase list. No hardware re-validation is needed (pins confirmed from the
+schematics).

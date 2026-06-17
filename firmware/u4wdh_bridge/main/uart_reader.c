@@ -55,6 +55,14 @@ static void on_control(uart_reader_ctx_t *ctx, const pcm_frame_t *frame)
         a2dp_bridge_set_metadata(title);
         break;
     }
+    case PCM_LINK_CTRL_BT_SCAN_START:
+        a2dp_bridge_start_scan();
+        break;
+    case PCM_LINK_CTRL_BT_PAIR:
+        if (msg.arg_len >= 6) {
+            a2dp_bridge_pair(msg.args);
+        }
+        break;
     default:
         ESP_LOGI(TAG, "control op=0x%02x args=%u", msg.op, (unsigned)msg.arg_len);
         break;

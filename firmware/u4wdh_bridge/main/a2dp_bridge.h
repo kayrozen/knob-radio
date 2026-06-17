@@ -40,9 +40,16 @@ void a2dp_bridge_set_buffer(jitter_buffer_t *jb);
 void a2dp_bridge_start_discovery(void);
 
 /* Store the now-playing title relayed from the S3 (PCM_LINK_CTRL_METADATA).
- * Kept for the AVRCP target attribute response to the car (Phase 11); for now
- * it is stored and logged. */
+ * The AVRCP target relays the car's transport buttons today; exposing this as
+ * the TITLE element attribute to the car is the remaining metadata-to-car step. */
 void a2dp_bridge_set_metadata(const char *title);
+
+/* Orchestrated pairing (plan §3.3), driven by control frames from the S3:
+ *  - start_scan: enter discovery and report each sink via BT_SCAN_RESULT
+ *    (instead of auto-connecting).
+ *  - pair: connect to the chosen sink (6-byte MAC). */
+void a2dp_bridge_start_scan(void);
+void a2dp_bridge_pair(const uint8_t mac[6]);
 
 #ifdef __cplusplus
 }

@@ -16,6 +16,8 @@
 
 #include "pcm_source.h"
 #include "audio_output.h"
+#include "backpressure_rx.h"
+#include "pcm_link_proto.h"
 #include "settings.h"
 
 #if defined(CONFIG_PRESET_ENABLE_HAPTIC)
@@ -75,6 +77,31 @@ static void on_ui_nav(int delta)
     apply_station(station_advance(delta));
 }
 #endif
+
+/* AVRCP (steering-wheel) button relayed from the car. Per plan §6.2 there is NO
+ * haptic — the hand is on the wheel, not the knob. */
+static void on_avrcp(uint8_t cmd)
+{
+    switch (cmd) {
+    case PCM_LINK_AVRCP_NEXT: apply_station(station_advance(1));  break;
+    case PCM_LINK_AVRCP_PREV: apply_station(station_advance(-1)); break;
+    default: break;   /* play/pause: transport control is a later step */
+    }
+}
+
+/* Bluetooth connection state from the bridge -> UI overlay. */
+static void on_bt_status(uint8_t state)
+{
+#if defined(CONFIG_PRESET_ENABLE_UI)
+    if (state == PCM_LINK_BT_CONNECTED) {
+        ui_show_status(UI_STATUS_NONE, NULL);
+    } else if (state == PCM_LINK_BT_CONNECTING) {
+        ui_show_status(UI_STATUS_PAIRING, NULL);
+    }
+#else
+    (void)state;
+#endif
+}
 
 static void phase_e_start(void)
 {
@@ -149,6 +176,10 @@ void app_main(void)
 #endif
     audio_output_mode_t out_mode = settings_get_output_mode(mode_def)
                                        ? AUDIO_OUTPUT_ANALOG : AUDIO_OUTPUT_BT;
+#if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)
+    /* Route the bridge's AVRCP + BT-status frames before the listener starts. */
+    backpressure_rx_set_handlers(on_avrcp, on_bt_status);
+#endif
     audio_output_start(out_mode);   /* BT: UART+A2DP / ANALOG: I2S->DAC */
 
 #if defined(CONFIG_PRESET_AUDIO_SOURCE_ADF)

@@ -6,6 +6,7 @@ idf_component_register(
         "backpressure.c"
         "a2dp_bridge.c"
         "dac_mute.c"
+        "link_tx.c"
     INCLUDE_DIRS
         "."
     REQUIRES

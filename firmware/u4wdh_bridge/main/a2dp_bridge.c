@@ -8,6 +8,7 @@
  */
 #include "a2dp_bridge.h"
 #include "pcm_link_proto.h"
+#include "link_tx.h"
 
 #include <string.h>
 
@@ -17,6 +18,7 @@
 #include "esp_bt_device.h"
 #include "esp_gap_bt_api.h"
 #include "esp_a2dp_api.h"
+#include "esp_avrc_api.h"
 #include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -27,7 +29,13 @@ static jitter_buffer_t *s_jb;
 static esp_bd_addr_t    s_peer_bda;
 static bool             s_peer_found;
 static bool             s_connected;
+static bool             s_scanning;       /* report sinks instead of connecting */
 static char             s_metadata[64];   /* now-playing title (for AVRCP TG) */
+
+static void send_bt_status(uint8_t state)
+{
+    link_tx_send_control(PCM_LINK_CTRL_BT_STATUS, &state, 1);
+}
 
 void a2dp_bridge_set_metadata(const char *title)
 {
@@ -83,15 +91,33 @@ static void gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
 {
     switch (event) {
     case ESP_BT_GAP_DISC_RES_EVT: {
+        char name[64] = {0};
+        /* Orchestrated scan: relay every discovered device to the S3 (which
+         * shows the list in the portal) and do not auto-connect. */
+        if (s_scanning) {
+            for (int i = 0; i < param->disc_res.num_prop; i++) {
+                esp_bt_gap_dev_prop_t *p = &param->disc_res.prop[i];
+                if (p->type == ESP_BT_GAP_DEV_PROP_EIR) {
+                    get_name_from_eir((uint8_t *)p->val, name, sizeof(name));
+                }
+            }
+            uint8_t buf[6 + 57];
+            memcpy(buf, param->disc_res.bda, 6);
+            size_t nl = strnlen(name, sizeof(buf) - 6);
+            memcpy(buf + 6, name, nl);
+            link_tx_send_control(PCM_LINK_CTRL_BT_SCAN_RESULT, buf,
+                                 (uint16_t)(6 + nl));
+            break;
+        }
         if (s_peer_found) {
             break;
         }
-        char name[64] = {0};
         if (is_target(param, name, sizeof(name))) {
             ESP_LOGI(TAG, "found sink '%s', connecting", name[0] ? name : "?");
             memcpy(s_peer_bda, param->disc_res.bda, ESP_BD_ADDR_LEN);
             s_peer_found = true;
             esp_bt_gap_cancel_discovery();
+            send_bt_status(PCM_LINK_BT_CONNECTING);
             esp_a2d_source_connect(s_peer_bda);
         }
         break;
@@ -133,10 +159,12 @@ static void a2dp_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param)
         ESP_LOGI(TAG, "A2DP conn state %d", st);
         if (st == ESP_A2D_CONNECTION_STATE_CONNECTED) {
             s_connected = true;
+            send_bt_status(PCM_LINK_BT_CONNECTED);
             esp_a2d_media_ctrl(ESP_A2D_MEDIA_CTRL_CHECK_SRC_RDY);
         } else if (st == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
             s_connected = false;
             s_peer_found = false;
+            send_bt_status(PCM_LINK_BT_DISCONNECTED);
             esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
         }
         break;
@@ -155,6 +183,61 @@ static void a2dp_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param)
     }
 }
 
+/* ----- AVRCP target: relay the car's transport buttons to the S3 -------- */
+static void avrc_tg_cb(esp_avrc_tg_cb_event_t event, esp_avrc_tg_cb_param_t *param)
+{
+    if (event != ESP_AVRC_TG_PASSTHROUGH_CMD_EVT) {
+        return;
+    }
+    /* Act on the release edge so each press maps to one event. */
+    if (param->psth_cmd.key_state != ESP_AVRC_PT_CMD_STATE_RELEASED) {
+        return;
+    }
+    uint8_t cmd;
+    switch (param->psth_cmd.key_code) {
+    case ESP_AVRC_PT_CMD_PLAY:     cmd = PCM_LINK_AVRCP_PLAY;  break;
+    case ESP_AVRC_PT_CMD_PAUSE:    cmd = PCM_LINK_AVRCP_PAUSE; break;
+    case ESP_AVRC_PT_CMD_FORWARD:  cmd = PCM_LINK_AVRCP_NEXT;  break;
+    case ESP_AVRC_PT_CMD_BACKWARD: cmd = PCM_LINK_AVRCP_PREV;  break;
+    default: return;
+    }
+    link_tx_send_control(PCM_LINK_CTRL_AVRCP_EVENT, &cmd, 1);
+}
+
+static void avrcp_tg_init(void)
+{
+    esp_avrc_tg_init();
+    esp_avrc_tg_register_callback(avrc_tg_cb);
+
+    /* Allow the transport-control passthrough commands we relay. */
+    esp_avrc_psth_bit_mask_t mask = { 0 };
+    esp_avrc_psth_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &mask, ESP_AVRC_PT_CMD_PLAY);
+    esp_avrc_psth_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &mask, ESP_AVRC_PT_CMD_PAUSE);
+    esp_avrc_psth_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &mask, ESP_AVRC_PT_CMD_FORWARD);
+    esp_avrc_psth_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &mask, ESP_AVRC_PT_CMD_BACKWARD);
+    esp_avrc_tg_set_psth_cmd_filter(ESP_AVRC_PSTH_FILTER_ALLOWED_CMD, &mask);
+}
+
+void a2dp_bridge_start_scan(void)
+{
+    s_scanning = true;
+    s_peer_found = false;
+    ESP_LOGI(TAG, "orchestrated scan: reporting sinks to S3");
+    esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
+}
+
+void a2dp_bridge_pair(const uint8_t mac[6])
+{
+    s_scanning = false;
+    esp_bt_gap_cancel_discovery();
+    memcpy(s_peer_bda, mac, ESP_BD_ADDR_LEN);
+    s_peer_found = true;
+    ESP_LOGI(TAG, "pairing to %02x:%02x:%02x:%02x:%02x:%02x",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    send_bt_status(PCM_LINK_BT_CONNECTING);
+    esp_a2d_source_connect(s_peer_bda);
+}
+
 void a2dp_bridge_init(void)
 {
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
@@ -170,6 +253,9 @@ void a2dp_bridge_init(void)
     ESP_ERROR_CHECK(esp_a2d_register_callback(a2dp_cb));
     ESP_ERROR_CHECK(esp_a2d_source_register_data_callback(a2dp_data_cb));
     ESP_ERROR_CHECK(esp_a2d_source_init());
+
+    /* AVRCP target so the car's steering-wheel transport buttons reach us. */
+    avrcp_tg_init();
 
     esp_bt_gap_set_device_name("Preset-Bridge");
     esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
