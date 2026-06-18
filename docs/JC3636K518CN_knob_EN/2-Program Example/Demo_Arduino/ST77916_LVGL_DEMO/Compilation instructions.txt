@@ -1,0 +1,14 @@
+需要Arduino 3.0.1 及以上
+
+安装ESP32_Display_Panel(0.1.4)库和
+ESP32_IO_Expander(0.0.2)库
+lvgl安装库 8.4.0 及以下
+
+1、安装后将 lv_conf.h 拷贝到  
+C:\Users\你的用户名\Documents\Arduino\libraries\ 目录下
+
+2、把 C:\Users\你的用户名\Documents\Arduino\libraries\lvgl\下的 demos 文件夹移动到
+C:\Users\你的用户名\Documents\Arduino\libraries\lvgl\src\目录下
+
+
+Arduino IDE按截图里面的设置调整
