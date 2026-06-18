@@ -20,12 +20,14 @@ void jb_init(jitter_buffer_t *jb, uint8_t *backing, size_t capacity)
 size_t jb_filled(const jitter_buffer_t *jb)
 {
     /* SPSC across two cores: the producer only advances head, the consumer only
-     * advances tail. Acquire-load both so this pairs with the release-stores in
-     * jb_push/jb_pull — the lock-free fill estimate (backpressure + underrun
-     * paths) then never sees a torn or stale cross-core value, and the data
-     * writes behind a published index are guaranteed visible. */
-    size_t head = __atomic_load_n(&jb->head, __ATOMIC_ACQUIRE);
+     * advances tail. Acquire-load both (pairs with the release-stores in
+     * jb_push/jb_pull) so the data writes behind a published index are visible.
+     * Load tail BEFORE head: a backpressure poller is neither owner, so reading
+     * an old tail with a newer head only ever over-estimates fill (safe),
+     * whereas head-then-tail could read a stale head the tail has passed and
+     * compute a wildly inflated level via the wrap branch. */
     size_t tail = __atomic_load_n(&jb->tail, __ATOMIC_ACQUIRE);
+    size_t head = __atomic_load_n(&jb->head, __ATOMIC_ACQUIRE);
     if (head >= tail) {
         return head - tail;
     }
