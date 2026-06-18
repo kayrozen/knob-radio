@@ -54,7 +54,7 @@ void settings_set_wifi(const char *ssid, const char *pass)
 void settings_get_device_name(char *out)
 {
     if (!get_str(KEY_NAME, out, SETTINGS_STR_MAX)) {
-        strcpy(out, DEFAULT_NAME);
+        strlcpy(out, DEFAULT_NAME, SETTINGS_STR_MAX);
     }
 }
 
@@ -88,7 +88,7 @@ void settings_set_output_mode(int mode)
 void settings_get_timezone(char *out)
 {
     if (!get_str(KEY_TZ, out, SETTINGS_STR_MAX)) {
-        strcpy(out, DEFAULT_TZ);
+        strlcpy(out, DEFAULT_TZ, SETTINGS_STR_MAX);
     }
 }
 
