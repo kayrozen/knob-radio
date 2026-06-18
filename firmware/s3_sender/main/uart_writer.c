@@ -33,7 +33,7 @@ static void uart_tx_task(void *arg)
     static uint8_t wire[PCM_LINK_FRAME_MAX_WIRE];
 
     uint8_t seq = 0;
-    uint32_t frames = 0, bytes_on_wire = 0, short_writes = 0;
+    uint32_t frames = 0, bytes_on_wire = 0, tx_errors = 0;
     int64_t next_us = esp_timer_get_time();
     TickType_t last_log = xTaskGetTickCount();
 
@@ -41,12 +41,15 @@ static void uart_tx_task(void *arg)
         pcm_source_read(payload, sizeof(payload));
 
         size_t w = pcm_frame_build(seq++, payload, sizeof(payload), wire);
+        /* Blocks until the whole frame is queued (returns w), so this never
+         * partially writes; < 0 is a genuine driver error worth surfacing. A
+         * backed-up TX ring instead shows up as falling behind the pace below. */
         int written = uart_write_bytes(FORWARD_UART_NUM, wire, w);
         if (written > 0) {
             bytes_on_wire += (uint32_t)written;
         }
-        if (written != (int)w) {
-            short_writes++;   /* TX ring full: part of this frame was dropped */
+        if (written < 0) {
+            tx_errors++;
         }
         frames++;
 
@@ -64,12 +67,12 @@ static void uart_tx_task(void *arg)
 
         if (xTaskGetTickCount() - last_log > pdMS_TO_TICKS(5000)) {
             last_log = xTaskGetTickCount();
-            ESP_LOGI(TAG, "frames=%lu wire=%lu B rate=%.3f short=%lu",
+            ESP_LOGI(TAG, "frames=%lu wire=%lu B rate=%.3f tx_err=%lu",
                      (unsigned long)frames, (unsigned long)bytes_on_wire, rate,
-                     (unsigned long)short_writes);
-            if (short_writes) {
-                ESP_LOGW(TAG, "%lu short UART writes (TX ring full) since boot",
-                         (unsigned long)short_writes);
+                     (unsigned long)tx_errors);
+            if (tx_errors) {
+                ESP_LOGW(TAG, "%lu UART write errors since boot",
+                         (unsigned long)tx_errors);
             }
         }
     }
@@ -109,9 +112,10 @@ void uart_writer_send_control(uint8_t op, const uint8_t *args, uint16_t len)
     uint8_t wire[PCM_LINK_FRAME_MAX_WIRE];
     size_t w = pcm_link_ctrl_build_frame(seq++, op, args, len, wire);
     if (w) {
+        /* Blocking write (reliable control delivery); < 0 is a real error. */
         int n = uart_write_bytes(FORWARD_UART_NUM, wire, w);
-        if (n != (int)w) {
-            ESP_LOGW(TAG, "control op 0x%02x short write: %d/%u", op, n, (unsigned)w);
+        if (n < 0) {
+            ESP_LOGW(TAG, "control op 0x%02x write error: %d", op, n);
         }
     }
 }
