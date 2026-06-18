@@ -19,8 +19,12 @@ void jb_init(jitter_buffer_t *jb, uint8_t *backing, size_t capacity)
 
 size_t jb_filled(const jitter_buffer_t *jb)
 {
-    size_t head = jb->head;
-    size_t tail = jb->tail;
+    /* SPSC across two cores: the producer only advances head, the consumer only
+     * advances tail. Load the pair atomically (acquire on head pairs with the
+     * producer's release in jb_push) so the lock-free fill estimate the
+     * backpressure + underrun paths use never sees a torn cross-core value. */
+    size_t head = __atomic_load_n(&jb->head, __ATOMIC_ACQUIRE);
+    size_t tail = __atomic_load_n(&jb->tail, __ATOMIC_RELAXED);
     if (head >= tail) {
         return head - tail;
     }
