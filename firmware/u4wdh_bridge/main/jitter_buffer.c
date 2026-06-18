@@ -19,8 +19,15 @@ void jb_init(jitter_buffer_t *jb, uint8_t *backing, size_t capacity)
 
 size_t jb_filled(const jitter_buffer_t *jb)
 {
-    size_t head = jb->head;
-    size_t tail = jb->tail;
+    /* SPSC across two cores: the producer only advances head, the consumer only
+     * advances tail. Acquire-load both (pairs with the release-stores in
+     * jb_push/jb_pull) so the data writes behind a published index are visible.
+     * Load tail BEFORE head: a backpressure poller is neither owner, so reading
+     * an old tail with a newer head only ever over-estimates fill (safe),
+     * whereas head-then-tail could read a stale head the tail has passed and
+     * compute a wildly inflated level via the wrap branch. */
+    size_t tail = __atomic_load_n(&jb->tail, __ATOMIC_ACQUIRE);
+    size_t head = __atomic_load_n(&jb->head, __ATOMIC_ACQUIRE);
     if (head >= tail) {
         return head - tail;
     }
@@ -61,7 +68,9 @@ bool jb_push(jitter_buffer_t *jb, const uint8_t *src, size_t len)
     if (len > first) {
         memcpy(&jb->data[0], src + first, len - first);
     }
-    jb->head = (head + len) % jb->capacity;
+    /* Publish head with release so the consumer's acquire-load sees the data
+     * writes above before it sees the advanced head. */
+    __atomic_store_n(&jb->head, (head + len) % jb->capacity, __ATOMIC_RELEASE);
     jb->pushed_bytes += (uint32_t)len;
     return true;
 }
@@ -80,7 +89,9 @@ size_t jb_pull(jitter_buffer_t *jb, uint8_t *dst, size_t len)
     if (take > first) {
         memcpy(dst + first, &jb->data[0], take - first);
     }
-    jb->tail = (tail + take) % jb->capacity;
+    /* Publish tail with release so the producer's acquire-load sees the reads
+     * above are done before it reclaims that space. */
+    __atomic_store_n(&jb->tail, (tail + take) % jb->capacity, __ATOMIC_RELEASE);
     jb->pulled_bytes += (uint32_t)take;
 
     if (take < len) {
