@@ -34,8 +34,11 @@ static audio_element_handle_t  s_filter;   /* resampler */
 static audio_element_handle_t  s_raw;
 static audio_event_iface_handle_t s_evt;
 
-static uint32_t s_start_offset;   /* Range offset this playback started at */
-static int64_t  s_play_start_us;  /* when the current URL started playing  */
+static uint32_t s_start_offset;   /* Range offset this playback started at    */
+static uint32_t s_play_start_ms;  /* when the current URL started playing (ms) */
+/* 32-bit ms (not 64-bit us): reads/writes stay atomic on the 32-bit S3, so the
+ * value can't tear between the playback worker and a caller on another core;
+ * unsigned subtraction still handles wrap (~49 days). */
 
 /* Re-play roughly this much on resume: the decoder's consumed-bytes position
  * still leads what has been *heard* by the decoded-but-unplayed audio sitting
@@ -94,9 +97,9 @@ uint32_t adf_pipeline_byte_pos(void)
 
     /* Rewind a few seconds using the measured average source byte rate, to
      * cover the decoded-but-unplayed tail and give a comfortable pickup. */
-    int64_t elapsed_us = esp_timer_get_time() - s_play_start_us;
-    if (elapsed_us > 1000000) {
-        uint64_t avg_bps = (uint64_t)info.byte_pos * 1000000ULL / (uint64_t)elapsed_us;
+    uint32_t elapsed_ms = (uint32_t)(esp_timer_get_time() / 1000) - s_play_start_ms;
+    if (elapsed_ms > 1000) {
+        uint64_t avg_bps = (uint64_t)info.byte_pos * 1000ULL / (uint64_t)elapsed_ms;
         uint64_t margin  = avg_bps * RESUME_REWIND_S;
         pos = (pos > s_start_offset + margin) ? pos - margin : s_start_offset;
     }
@@ -152,7 +155,7 @@ void adf_pipeline_start(const char *url, uint32_t byte_offset)
         set_byte_pos(byte_offset);
     }
     s_start_offset  = byte_offset;
-    s_play_start_us = esp_timer_get_time();
+    s_play_start_ms = (uint32_t)(esp_timer_get_time() / 1000);
     audio_pipeline_run(s_pipeline);
     ESP_LOGI(TAG, "pipeline running: %s (offset %lu)", url, (unsigned long)byte_offset);
 
@@ -180,6 +183,6 @@ void adf_pipeline_set_url(const char *url, uint32_t byte_offset)
     audio_element_set_uri(s_http, url);
     set_byte_pos(byte_offset);
     s_start_offset  = byte_offset;
-    s_play_start_us = esp_timer_get_time();
+    s_play_start_ms = (uint32_t)(esp_timer_get_time() / 1000);
     audio_pipeline_run(s_pipeline);
 }
