@@ -72,9 +72,11 @@ static esp_timer_handle_t s_disc_timer;
  * stall the system timer. Those tasks post a request here and return; this one
  * worker does the blocking work and is the sole caller into the pipeline, which
  * also serialises pipeline access. */
-typedef enum { PLAY_APPLY, PLAY_SAVE_POS } play_op_t;
+typedef enum { PLAY_APPLY, PLAY_SAVE_POS, PLAY_SCHEDULE } play_op_t;
 typedef struct { play_op_t op; int index; bool save_outgoing; } play_req_t;
 static QueueHandle_t s_play_q;
+
+static void schedule_apply_blocking(void);   /* defined below; runs on worker */
 
 /* Resolve a preset to its play URL + resume offset. A podcast's URL is an RSS
  * feed: fetch it for the latest episode and resume at its saved byte position;
@@ -157,8 +159,10 @@ static void playback_worker(void *arg)
         }
         if (req.op == PLAY_APPLY) {
             apply_station_blocking(req.index, req.save_outgoing);
-        } else {
+        } else if (req.op == PLAY_SAVE_POS) {
             save_disc_pos_blocking();
+        } else {
+            schedule_apply_blocking();
         }
     }
 }
@@ -172,8 +176,10 @@ static void playback_post(play_op_t op, int index, bool save_outgoing)
     if (!s_play_q) {
         if (op == PLAY_APPLY) {
             apply_station_blocking(index, save_outgoing);
-        } else {
+        } else if (op == PLAY_SAVE_POS) {
             save_disc_pos_blocking();
+        } else {
+            schedule_apply_blocking();
         }
         return;
     }
@@ -200,11 +206,11 @@ static void disc_timer_cb(void *arg)
     playback_post(PLAY_SAVE_POS, 0, false);
 }
 
-/* Auto-play scheduler: pick the preset whose schedule window is active right
- * now (local time) and switch to it. Triggered when the clock first syncs and
- * whenever Bluetooth (re)connects, so the device lands on the right preset on
- * its own. No-op until the clock is set, or if no schedule matches. */
-static void scheduler_apply(void)
+/* The blocking body of the scheduler: pick the active preset and switch to it.
+ * Runs on the playback worker because station_set_current() writes NVS — which
+ * must not happen in the SNTP notification (LWIP task) or return-channel task
+ * that trigger the scheduler. */
+static void schedule_apply_blocking(void)
 {
     int weekday, minute;
     if (!time_now_local(&weekday, &minute)) {
@@ -223,8 +229,16 @@ static void scheduler_apply(void)
     if (idx >= 0 && idx != station_current()) {
         ESP_LOGI(TAG, "schedule active -> preset %d", idx);
         station_set_current(idx);
-        apply_station(idx, true);
+        apply_station_blocking(idx, true);   /* already on the worker */
     }
+}
+
+/* Auto-play scheduler trigger (non-blocking): the decision + NVS write run on
+ * the playback worker. Triggered when the clock first syncs and whenever
+ * Bluetooth (re)connects, so the device lands on the right preset on its own. */
+static void scheduler_apply(void)
+{
+    playback_post(PLAY_SCHEDULE, 0, false);
 }
 
 /* Encoder detent -> a crisp click (plan §6.2: hand is on the knob). */
