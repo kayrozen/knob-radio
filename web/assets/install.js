@@ -941,9 +941,11 @@ async function sendProvisioning(port) {
           statusEl.className = 'status-msg';
           return;
         }
-        if (response.includes('PROVISION:ERR:')) {
-          const errLine = response.match(/PROVISION:ERR:[^\n]*/)?.[0] || 'PROVISION:ERR:unknown';
-          throw new Error(T('rejected') + errLine);
+        // Only act once the whole line has arrived (serial chunks arbitrarily);
+        // the capture group drops the PROVISION:ERR: protocol prefix for the UI.
+        var errMatch = response.match(/PROVISION:ERR:([^\n]*)\n/);
+        if (errMatch) {
+          throw new Error(T('rejected') + errMatch[1].trim());
         }
       }
     }
