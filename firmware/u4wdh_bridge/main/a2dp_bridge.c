@@ -75,18 +75,32 @@ static bool get_name_from_eir(uint8_t *eir, char *out, size_t out_len)
     return true;
 }
 
-/* True when the Class of Device says this is something that can render audio
- * (a car head unit, speaker, headphones): the Rendering service bit, or the
- * Audio/Video major device class. Phones and laptops fail this check. */
+/* True when the Class of Device says this is an audio sink (a car head unit,
+ * speaker, headphones): Audio/Video major class AND an audio/rendering service
+ * bit. Requiring the AV major class keeps out non-audio devices that also set
+ * the Rendering bit (e.g. printers, major class Imaging). Phones/laptops fail. */
 static bool cod_is_audio_sink(uint32_t cod)
 {
     if (!esp_bt_gap_is_valid_cod(cod)) {
         return false;
     }
-    if (esp_bt_gap_get_cod_srvc(cod) & ESP_BT_COD_SRVC_RENDERING) {
-        return true;
+    if (esp_bt_gap_get_cod_major_dev(cod) != ESP_BT_COD_MAJOR_DEV_AV) {
+        return false;
     }
-    return esp_bt_gap_get_cod_major_dev(cod) == ESP_BT_COD_MAJOR_DEV_AV;
+    uint32_t srvc = esp_bt_gap_get_cod_srvc(cod);
+    return (srvc & ESP_BT_COD_SRVC_RENDERING) || (srvc & ESP_BT_COD_SRVC_AUDIO);
+}
+
+/* Safely read a COD property value: it may be NULL, the wrong length, or
+ * unaligned, so validate and memcpy rather than dereferencing a cast pointer. */
+static bool prop_is_audio_sink(const esp_bt_gap_dev_prop_t *p)
+{
+    if (!p->val || p->len != sizeof(uint32_t)) {
+        return false;
+    }
+    uint32_t cod = 0;
+    memcpy(&cod, p->val, sizeof(cod));
+    return cod_is_audio_sink(cod);
 }
 
 static bool is_target(esp_bt_gap_cb_param_t *param, char *name_out, size_t name_len)
@@ -100,7 +114,7 @@ static bool is_target(esp_bt_gap_cb_param_t *param, char *name_out, size_t name_
         if (p->type == ESP_BT_GAP_DEV_PROP_EIR) {
             get_name_from_eir((uint8_t *)p->val, name_out, name_len);
         } else if (p->type == ESP_BT_GAP_DEV_PROP_COD) {
-            sink = cod_is_audio_sink(*(uint32_t *)p->val);
+            sink = prop_is_audio_sink(p);
         }
     }
     if (!sink) {
@@ -128,7 +142,7 @@ static void gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
                 if (p->type == ESP_BT_GAP_DEV_PROP_EIR) {
                     get_name_from_eir((uint8_t *)p->val, name, sizeof(name));
                 } else if (p->type == ESP_BT_GAP_DEV_PROP_COD) {
-                    sink = cod_is_audio_sink(*(uint32_t *)p->val);
+                    sink = prop_is_audio_sink(p);
                 }
             }
             if (!sink) {
