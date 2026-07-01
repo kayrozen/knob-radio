@@ -58,8 +58,8 @@ bool wifi_sta_start(const char *ssid, const char *password, int timeout_ms)
         IP_EVENT, IP_EVENT_STA_GOT_IP, &on_ip, NULL, NULL));
 
     wifi_config_t wc = { 0 };
-    strlcpy((char *)wc.sta.ssid, ssid, sizeof(wc.sta.ssid));
-    strlcpy((char *)wc.sta.password, password, sizeof(wc.sta.password));
+    strlcpy((char *)wc.sta.ssid, ssid ? ssid : "", sizeof(wc.sta.ssid));
+    strlcpy((char *)wc.sta.password, password ? password : "", sizeof(wc.sta.password));
     /* The portal lists open networks too: an empty password must not demand
      * WPA2 or the STA will never associate. */
     wc.sta.threshold.authmode =
