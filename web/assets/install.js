@@ -936,14 +936,16 @@ async function sendProvisioning(port) {
       if (done) break;
       if (value) {
         response += new TextDecoder().decode(value);
-        if (response.includes('PROVISION:OK')) {
+        // Anchor the tokens to the start of a line so the substring can't match
+        // inside an unrelated boot/app log line sharing the console.
+        if (/(?:^|\n)PROVISION:OK(?:\r?\n|$)/.test(response)) {
           statusEl.textContent = T('provisioned');
           statusEl.className = 'status-msg';
           return;
         }
         // Only act once the whole line has arrived (serial chunks arbitrarily);
         // the capture group drops the PROVISION:ERR: protocol prefix for the UI.
-        var errMatch = response.match(/PROVISION:ERR:([^\n]*)\n/);
+        const errMatch = response.match(/(?:^|\n)PROVISION:ERR:([^\n]*)\n/);
         if (errMatch) {
           throw new Error(T('rejected') + errMatch[1].trim());
         }
