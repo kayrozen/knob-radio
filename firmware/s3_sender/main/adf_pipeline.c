@@ -10,7 +10,10 @@
 #include "adf_pipeline.h"
 #include "pcm_link_proto.h"
 
+#include <stdint.h>
+
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -30,6 +33,15 @@ static audio_element_handle_t  s_decoder;
 static audio_element_handle_t  s_filter;   /* resampler */
 static audio_element_handle_t  s_raw;
 static audio_event_iface_handle_t s_evt;
+
+static uint32_t s_start_offset;   /* Range offset this playback started at */
+static int64_t  s_play_start_us;  /* when the current URL started playing  */
+
+/* Re-play roughly this much on resume: the decoder's consumed-bytes position
+ * still leads what has been *heard* by the decoded-but-unplayed audio sitting
+ * in the resampler/raw ringbuffers and the far jitter buffer. Rewinding a few
+ * seconds also reads better than resuming mid-word. */
+#define RESUME_REWIND_S  5
 
 /* Listener: when the decoder reports the real music info, retune the resampler
  * so its source rate/channels match (output stays 44.1k/16/stereo). */
@@ -64,12 +76,31 @@ static void set_byte_pos(uint32_t byte_offset)
 
 uint32_t adf_pipeline_byte_pos(void)
 {
-    if (!s_http) {
+    if (!s_decoder) {
         return 0;
     }
+    /* Use the DECODER's consumed-bytes position, not the HTTP element's: the
+     * http position is how far the fetch has read ahead, which can lead the
+     * played position by the whole pipeline ringbuffer depth (tens of seconds
+     * at podcast bitrates). The decoder position counts source bytes actually
+     * decoded — much closer to what was heard. It counts from 0 for this
+     * playback, so add the Range offset the playback started at. */
     audio_element_info_t info = AUDIO_ELEMENT_INFO_DEFAULT();
-    audio_element_getinfo(s_http, &info);
-    return info.byte_pos > 0 ? (uint32_t)info.byte_pos : 0;
+    audio_element_getinfo(s_decoder, &info);
+    if (info.byte_pos <= 0) {
+        return s_start_offset;   /* nothing decoded yet: position unchanged */
+    }
+    uint64_t pos = (uint64_t)s_start_offset + (uint64_t)info.byte_pos;
+
+    /* Rewind a few seconds using the measured average source byte rate, to
+     * cover the decoded-but-unplayed tail and give a comfortable pickup. */
+    int64_t elapsed_us = esp_timer_get_time() - s_play_start_us;
+    if (elapsed_us > 1000000) {
+        uint64_t avg_bps = (uint64_t)info.byte_pos * 1000000ULL / (uint64_t)elapsed_us;
+        uint64_t margin  = avg_bps * RESUME_REWIND_S;
+        pos = (pos > s_start_offset + margin) ? pos - margin : s_start_offset;
+    }
+    return pos > UINT32_MAX ? UINT32_MAX : (uint32_t)pos;
 }
 
 void adf_pipeline_start(const char *url, uint32_t byte_offset)
@@ -120,6 +151,8 @@ void adf_pipeline_start(const char *url, uint32_t byte_offset)
     if (byte_offset) {
         set_byte_pos(byte_offset);
     }
+    s_start_offset  = byte_offset;
+    s_play_start_us = esp_timer_get_time();
     audio_pipeline_run(s_pipeline);
     ESP_LOGI(TAG, "pipeline running: %s (offset %lu)", url, (unsigned long)byte_offset);
 
@@ -146,5 +179,7 @@ void adf_pipeline_set_url(const char *url, uint32_t byte_offset)
 
     audio_element_set_uri(s_http, url);
     set_byte_pos(byte_offset);
+    s_start_offset  = byte_offset;
+    s_play_start_us = esp_timer_get_time();
     audio_pipeline_run(s_pipeline);
 }
