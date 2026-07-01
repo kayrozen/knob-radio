@@ -111,6 +111,9 @@ static const struct { const char *iana; const char *posix; } TZ_MAP[] = {
  * unlisted zone be provisioned directly as a POSIX rule. */
 static bool looks_posix(const char *tz)
 {
+    if (!tz) {
+        return false;
+    }
     if (strchr(tz, '/') && !strchr(tz, ',')) {
         return false;   /* "Area/City" shape */
     }
@@ -124,6 +127,9 @@ static bool looks_posix(const char *tz)
 
 static const char *iana_to_posix(const char *iana)
 {
+    if (!iana) {
+        return "UTC0";
+    }
     for (size_t i = 0; i < sizeof(TZ_MAP) / sizeof(TZ_MAP[0]); i++) {
         if (strcmp(iana, TZ_MAP[i].iana) == 0) {
             return TZ_MAP[i].posix;
