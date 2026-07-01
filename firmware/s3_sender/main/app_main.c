@@ -157,30 +157,24 @@ static void playback_worker(void *arg)
         if (xQueueReceive(s_play_q, &req, portMAX_DELAY) != pdTRUE) {
             continue;
         }
-        if (req.op == PLAY_APPLY) {
-            apply_station_blocking(req.index, req.save_outgoing);
-        } else if (req.op == PLAY_SAVE_POS) {
-            save_disc_pos_blocking();
-        } else {
-            schedule_apply_blocking();
+        switch (req.op) {
+        case PLAY_APPLY:    apply_station_blocking(req.index, req.save_outgoing); break;
+        case PLAY_SAVE_POS: save_disc_pos_blocking();                            break;
+        case PLAY_SCHEDULE: schedule_apply_blocking();                           break;
         }
     }
 }
 
 /* Post work to the playback worker (non-blocking). Before the worker exists
- * (early boot) the request runs inline — safe, since the only early callers are
- * on the init task. A full queue just drops the request (fast knob spins
- * coalesce to the latest landing). */
+ * (very early boot) drop the request rather than run it inline: the blocking
+ * bodies touch the ADF pipeline (s_pipeline), which isn't created yet, and a
+ * stray early BT/AVRCP event could otherwise crash on a NULL pipeline. Nothing
+ * legitimate posts that early — the boot path starts the pipeline directly. A
+ * full queue also drops (fast knob spins coalesce to the latest landing). */
 static void playback_post(play_op_t op, int index, bool save_outgoing)
 {
     if (!s_play_q) {
-        if (op == PLAY_APPLY) {
-            apply_station_blocking(index, save_outgoing);
-        } else if (op == PLAY_SAVE_POS) {
-            save_disc_pos_blocking();
-        } else {
-            schedule_apply_blocking();
-        }
+        ESP_LOGW(TAG, "playback worker not up yet; dropping op %d", op);
         return;
     }
     play_req_t req = { .op = op, .index = index, .save_outgoing = save_outgoing };
