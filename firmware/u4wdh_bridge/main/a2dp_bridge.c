@@ -91,15 +91,17 @@ static bool cod_is_audio_sink(uint32_t cod)
     return (srvc & ESP_BT_COD_SRVC_RENDERING) || (srvc & ESP_BT_COD_SRVC_AUDIO);
 }
 
-/* Safely read a COD property value: it may be NULL, the wrong length, or
- * unaligned, so validate and memcpy rather than dereferencing a cast pointer. */
+/* Safely read a COD property value: it may be NULL or unaligned, so validate
+ * and memcpy rather than dereferencing a cast pointer. The COD is a 24-bit
+ * field, so some controllers/IDF versions report len 3 rather than 4 — accept
+ * any 1..4-byte length and copy only what's there into the zero-init value. */
 static bool prop_is_audio_sink(const esp_bt_gap_dev_prop_t *p)
 {
-    if (!p->val || p->len != sizeof(uint32_t)) {
+    if (!p->val || p->len == 0 || p->len > sizeof(uint32_t)) {
         return false;
     }
     uint32_t cod = 0;
-    memcpy(&cod, p->val, sizeof(cod));
+    memcpy(&cod, p->val, p->len);
     return cod_is_audio_sink(cod);
 }
 
