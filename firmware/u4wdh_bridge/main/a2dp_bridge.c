@@ -75,18 +75,56 @@ static bool get_name_from_eir(uint8_t *eir, char *out, size_t out_len)
     return true;
 }
 
+/* True when the Class of Device says this is an audio sink (a car head unit,
+ * speaker, headphones): Audio/Video major class AND an audio/rendering service
+ * bit. Requiring the AV major class keeps out non-audio devices that also set
+ * the Rendering bit (e.g. printers, major class Imaging). Phones/laptops fail. */
+static bool cod_is_audio_sink(uint32_t cod)
+{
+    if (!esp_bt_gap_is_valid_cod(cod)) {
+        return false;
+    }
+    if (esp_bt_gap_get_cod_major_dev(cod) != ESP_BT_COD_MAJOR_DEV_AV) {
+        return false;
+    }
+    uint32_t srvc = esp_bt_gap_get_cod_srvc(cod);
+    return (srvc & ESP_BT_COD_SRVC_RENDERING) || (srvc & ESP_BT_COD_SRVC_AUDIO);
+}
+
+/* Safely read a COD property value: it may be NULL or unaligned, so validate
+ * and memcpy rather than dereferencing a cast pointer. The COD is a 24-bit
+ * field, so some controllers/IDF versions report len 3 rather than 4 — accept
+ * any 1..4-byte length and copy only what's there into the zero-init value. */
+static bool prop_is_audio_sink(const esp_bt_gap_dev_prop_t *p)
+{
+    if (!p->val || p->len == 0 || p->len > sizeof(uint32_t)) {
+        return false;
+    }
+    uint32_t cod = 0;
+    memcpy(&cod, p->val, p->len);
+    return cod_is_audio_sink(cod);
+}
+
 static bool is_target(esp_bt_gap_cb_param_t *param, char *name_out, size_t name_len)
 {
-    /* Must advertise the audio-rendering (sink) service to be a candidate. */
+    /* Must look like an audio sink to be a candidate at all — without this,
+     * the no-name-filter default would connect to the first device discovered
+     * (a phone, a laptop, ...). */
+    bool sink = false;
     for (int i = 0; i < param->disc_res.num_prop; i++) {
         esp_bt_gap_dev_prop_t *p = &param->disc_res.prop[i];
         if (p->type == ESP_BT_GAP_DEV_PROP_EIR) {
             get_name_from_eir((uint8_t *)p->val, name_out, name_len);
+        } else if (p->type == ESP_BT_GAP_DEV_PROP_COD) {
+            sink = prop_is_audio_sink(p);
         }
+    }
+    if (!sink) {
+        return false;
     }
     const char *want = A2DP_TARGET_NAME;
     if (want[0] == '\0') {
-        return true; /* no filter: take the first candidate */
+        return true; /* no name filter: take the first audio sink */
     }
     return strstr(name_out, want) != NULL;
 }
@@ -100,11 +138,17 @@ static void gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
         /* Orchestrated scan: relay every discovered device to the S3 (which
          * shows the list in the portal) and do not auto-connect. */
         if (s_scanning) {
+            bool sink = false;
             for (int i = 0; i < param->disc_res.num_prop; i++) {
                 esp_bt_gap_dev_prop_t *p = &param->disc_res.prop[i];
                 if (p->type == ESP_BT_GAP_DEV_PROP_EIR) {
                     get_name_from_eir((uint8_t *)p->val, name, sizeof(name));
+                } else if (p->type == ESP_BT_GAP_DEV_PROP_COD) {
+                    sink = prop_is_audio_sink(p);
                 }
+            }
+            if (!sink) {
+                break;   /* keep phones/laptops out of the portal's speaker list */
             }
             uint8_t buf[6 + 57];
             memcpy(buf, param->disc_res.bda, 6);
