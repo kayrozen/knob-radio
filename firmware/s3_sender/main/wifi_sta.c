@@ -43,6 +43,13 @@ static void on_ip(void *arg, esp_event_base_t base, int32_t id, void *data)
 
 bool wifi_sta_start(const char *ssid, const char *password, int timeout_ms)
 {
+    /* An empty SSID makes esp_wifi_set_config return ESP_ERR_INVALID_ARG, which
+     * ESP_ERROR_CHECK would turn into an abort. Bail before touching anything. */
+    if (!ssid || !ssid[0]) {
+        ESP_LOGE(TAG, "no SSID configured");
+        return false;
+    }
+
     s_wifi_events = xEventGroupCreate();
 
     ESP_ERROR_CHECK(esp_netif_init());
@@ -58,9 +65,12 @@ bool wifi_sta_start(const char *ssid, const char *password, int timeout_ms)
         IP_EVENT, IP_EVENT_STA_GOT_IP, &on_ip, NULL, NULL));
 
     wifi_config_t wc = { 0 };
-    strlcpy((char *)wc.sta.ssid, ssid, sizeof(wc.sta.ssid));
-    strlcpy((char *)wc.sta.password, password, sizeof(wc.sta.password));
-    wc.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    strlcpy((char *)wc.sta.ssid, ssid, sizeof(wc.sta.ssid));   /* guarded above */
+    strlcpy((char *)wc.sta.password, password ? password : "", sizeof(wc.sta.password));
+    /* The portal lists open networks too: an empty password must not demand
+     * WPA2 or the STA will never associate. */
+    wc.sta.threshold.authmode =
+        (password && password[0]) ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wc));
