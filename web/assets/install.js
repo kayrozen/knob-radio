@@ -936,13 +936,13 @@ async function sendProvisioning(port) {
       if (done) break;
       if (value) {
         response += new TextDecoder().decode(value);
-        if (response.includes('OK')) {
+        if (response.includes('PROVISION:OK')) {
           statusEl.textContent = T('provisioned');
           statusEl.className = 'status-msg';
           return;
         }
-        if (response.includes('ERR:')) {
-          const errLine = response.match(/ERR:[^\n]*/)?.[0] || 'ERR:unknown';
+        if (response.includes('PROVISION:ERR:')) {
+          const errLine = response.match(/PROVISION:ERR:[^\n]*/)?.[0] || 'PROVISION:ERR:unknown';
           throw new Error(T('rejected') + errLine);
         }
       }
