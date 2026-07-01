@@ -62,12 +62,15 @@ static void provision_task(void *arg)
 
         line[len] = '\0';
         if (len > plen && strncmp(line, PROVISION_PREFIX, plen) == 0) {
+            /* Distinctive ack tokens: the reply shares the console with boot and
+             * application logs, so a bare "OK"/"ERR:" could be matched inside an
+             * unrelated log line by the installer. */
             if (provision_apply_json(line + plen)) {
-                respond("OK\n");
+                respond("PROVISION:OK\n");
                 vTaskDelay(pdMS_TO_TICKS(400));   /* let the reply drain */
                 esp_restart();
             } else {
-                respond("ERR:invalid provisioning payload\n");
+                respond("PROVISION:ERR:invalid provisioning payload\n");
             }
         }
         len = 0;

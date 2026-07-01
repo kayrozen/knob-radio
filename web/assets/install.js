@@ -936,14 +936,18 @@ async function sendProvisioning(port) {
       if (done) break;
       if (value) {
         response += new TextDecoder().decode(value);
-        if (response.includes('OK')) {
+        // Anchor the tokens to the start of a line so the substring can't match
+        // inside an unrelated boot/app log line sharing the console.
+        if (/(?:^|\n)PROVISION:OK(?:\r?\n|$)/.test(response)) {
           statusEl.textContent = T('provisioned');
           statusEl.className = 'status-msg';
           return;
         }
-        if (response.includes('ERR:')) {
-          const errLine = response.match(/ERR:[^\n]*/)?.[0] || 'ERR:unknown';
-          throw new Error(T('rejected') + errLine);
+        // Only act once the whole line has arrived (serial chunks arbitrarily);
+        // the capture group drops the PROVISION:ERR: protocol prefix for the UI.
+        const errMatch = response.match(/(?:^|\n)PROVISION:ERR:([^\n]*)\n/);
+        if (errMatch) {
+          throw new Error(T('rejected') + errMatch[1].trim());
         }
       }
     }
